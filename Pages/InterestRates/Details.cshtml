@@ -1,0 +1,216 @@
+@page "{code:int}"
+@model RealCoreBanking.Pages.InterestRates.DetailsModel
+@{
+    var r = Model.Rate;
+    ViewData["Title"] = r != null ? $"Ставка {r.Code}" : "Ставка";
+}
+
+@if (r == null)
+{
+    <div class="alert alert-danger">Ставка не найдена.</div>
+    return;
+}
+
+<a asp-page="/InterestRates/Index" class="text-muted text-decoration-none small">← Ставки и индексы</a>
+<div class="d-flex justify-content-between align-items-start mt-1 mb-4">
+    <div>
+        <h4 class="mb-0 fw-bold">Ставка @r.Code — @r.Name</h4>
+        <small class="text-muted">
+            <span class="badge bg-primary">@r.Currency</span>
+            <span class="badge bg-secondary ms-1">@r.Type</span>
+            <span class="badge bg-info text-dark ms-1">@r.Purpose</span>
+        </small>
+    </div>
+    <div class="d-flex gap-2">
+        @if (!string.IsNullOrEmpty(r.RateIndexCode) && Model.LinkedIndex != null)
+        {
+            <form method="post" asp-page-handler="RefreshFromIndex">
+                <input type="hidden" name="code" value="@r.Code" />
+                <button class="btn btn-sm btn-outline-warning"
+                        title="Взять текущее значение из индекса @r.RateIndexCode и пересчитать ставку">
+                    &#8635; Обновить из индекса
+                </button>
+            </form>
+        }
+        <form method="post" asp-page-handler="Delete"
+              onsubmit="return confirm('Удалить ставку @r.Code?')">
+            <input type="hidden" name="code" value="@r.Code" />
+            <button class="btn btn-sm btn-outline-danger">Удалить</button>
+        </form>
+    </div>
+</div>
+
+<form method="post" asp-page-handler="Update">
+    <input type="hidden" name="code" value="@r.Code" />
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Основные параметры</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label form-label-sm">Название</label>
+                    <input name="name" class="form-control" value="@r.Name" required />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Валюта</label>
+                    <input name="currency" class="form-control" value="@r.Currency" maxlength="3" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Назначение</label>
+                    <select name="purpose" class="form-select">
+                        @foreach (var v in Enum.GetValues<RealCoreBanking.Core.Models.InterestRatePurpose>())
+                        {
+                            if (r.Purpose == v) { <option value="@v" selected>@v</option> }
+                            else { <option value="@v">@v</option> }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Тип</label>
+                    <select name="type" class="form-select">
+                        @foreach (var v in Enum.GetValues<RealCoreBanking.Core.Models.InterestRateType>())
+                        {
+                            if (r.Type == v) { <option value="@v" selected>@v</option> }
+                            else { <option value="@v">@v</option> }
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Значение и срок</div>
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Текущая ставка (%)</label>
+                    @if (Model.LinkedIndex != null)
+                    {
+                        var idxCur = Model.LinkedIndex.GetCurrentRate();
+                        <input type="text" class="form-control mono fw-bold bg-light"
+                               value="@r.CurrentRate.ToString("N4")%" readonly
+                               title="Унаследовано от индекса @r.RateIndexCode" />
+                        <input name="currentRate" type="hidden" value="@r.CurrentRate" />
+                        <div class="form-text text-success">
+                            &#8593; из @r.RateIndexCode
+                            @if (idxCur != null)
+                            {
+                                <span class="ms-1 text-muted">(индекс: @idxCur.Value.ToString("N4")%)</span>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <input name="currentRate" type="number" step="0.0001" class="form-control mono"
+                               value="@r.CurrentRate" />
+                    }
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Предыдущая ставка</label>
+                    <input type="text" class="form-control-plaintext mono fw-bold ps-2"
+                           value="@r.PreviousRate.ToString("N4")%" readonly />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Действует с</label>
+                    <input name="effectiveFrom" type="date" class="form-control"
+                           value="@r.EffectiveFrom.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Действует по</label>
+                    <input name="effectiveTo" type="date" class="form-control"
+                           value="@(r.EffectiveTo.HasValue ? r.EffectiveTo.Value.ToString("yyyy-MM-dd") : "")" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Индекс и периодичность</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label form-label-sm">Код индекса</label>
+                    <select name="rateIndexCode" class="form-select">
+                        <option value="">— нет —</option>
+                        @foreach (var idx in Model.Indexes)
+                        {
+                            if (r.RateIndexCode == idx.Code) { <option value="@idx.Code" selected>@idx.Code — @idx.Name</option> }
+                            else { <option value="@idx.Code">@idx.Code — @idx.Name</option> }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Период обновления</label>
+                    <select name="updatePeriod" class="form-select">
+                        @foreach (var v in Enum.GetValues<RealCoreBanking.Core.Models.InterestUpdatePeriod>())
+                        {
+                            if (r.UpdatePeriod == v) { <option value="@v" selected>@v</option> }
+                            else { <option value="@v">@v</option> }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Лаг фиксации (дн.)</label>
+                    <input name="fixingLagDays" type="number" class="form-control" min="0" value="@r.FixingLagDays" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Лаг уведомления (дн.)</label>
+                    <input name="notificationLagDays" type="number" class="form-control" min="0" value="@r.NotificationLagDays" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Корректировка и округление</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Спред (%)</label>
+                    <input name="spread" type="number" step="0.01" class="form-control mono" value="@r.Spread" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Мультипликатор</label>
+                    <input name="multiplier" type="number" step="0.001" class="form-control mono" value="@r.Multiplier" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Шаг округления (%)</label>
+                    <input name="roundingStep" type="number" step="0.001" class="form-control mono" value="@r.RoundingStep" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label form-label-sm">Правило округления</label>
+                    <select name="roundingRule" class="form-select">
+                        @foreach (var v in Enum.GetValues<RealCoreBanking.Core.Enums.RoundingRule>())
+                        {
+                            if (r.RoundingRule == v) { <option value="@v" selected>@v</option> }
+                            else { <option value="@v">@v</option> }
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold">Ограничения</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label form-label-sm">Пол (Floor, %)</label>
+                    <input name="floor" type="number" step="0.01" class="form-control mono" value="@r.Floor" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label form-label-sm">Кап (Cap, %)</label>
+                    <input name="cap" type="number" step="0.01" class="form-control mono" value="@r.Cap" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label form-label-sm">Регуляторный макс. (%)</label>
+                    <input name="regulatoryMax" type="number" step="0.01" class="form-control mono" value="@r.RegulatoryMax" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary px-4">Сохранить изменения</button>
+</form>

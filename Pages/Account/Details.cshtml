@@ -1,0 +1,363 @@
+@page
+@model RealCoreBanking.Pages.Account.DetailsModel
+@using RealCoreBanking.Core.Enums
+@using RealCoreBanking.Core.Models
+@{
+    ViewData["Title"] = Model.Account?.AccountNumber ?? "Счет";
+    var a = Model.Account!;
+}
+
+@if (a == null)
+{
+    <div class="alert alert-danger">Счет не найден.</div>
+    return;
+}
+
+@if (Model.Message != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show">
+        @Model.Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<style>
+    .info-box {
+        border: 1px solid #dee2e6;
+        border-radius: .375rem;
+        padding: .375rem .75rem;
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+        background: #fff;
+    }
+    .info-label {
+        font-size: .75rem;
+        color: #6c757d;
+        margin-bottom: .2rem;
+    }
+    .currency-block {
+        border: 1px solid #dee2e6;
+        border-radius: .5rem;
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+    .currency-block-header {
+        background: #f8f9fa;
+        padding: .5rem .75rem;
+        font-weight: 600;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .currency-block-footer {
+        background: #f8f9fa;
+        padding: .5rem .75rem;
+        border-top: 1px solid #dee2e6;
+        font-size: .875rem;
+    }
+    .status-badge-open            { background:#198754; }
+    .status-badge-close           { background:#6c757d; }
+    .status-badge-sleeping        { background:#0d6efd; }
+    .status-badge-dormant         { background:#fd7e14; }
+    .status-badge-waiting         { background:#ffc107; color:#000!important; }
+</style>
+
+<!-- ── Header ─────────────────────────────────────────────── -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <span class="badge bg-secondary px-3 py-2" style="font-size:.85rem">@a.BookType</span>
+
+    <div class="dropdown">
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+            Action menu
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+            <li>
+                <a class="dropdown-item d-flex justify-content-between gap-4" asp-page="/Account/Open">
+                    New <kbd class="text-muted">Ctrl+N</kbd>
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#toolsModal">
+                    Tools &rsaquo;
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#statusModal">
+                    Change status
+                </a>
+            </li>
+            <li>
+                <form method="post" asp-page-handler="Close" class="m-0"
+                      onsubmit="return confirm('Закрыть счет @a.AccountNumber?')">
+                    <input type="hidden" name="id" value="@a.AccountId" />
+                    <button type="submit" class="dropdown-item text-danger">Close Account</button>
+                </form>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- ── Account info fields ───────────────────────────────── -->
+<div class="mb-4" style="max-width:760px">
+
+    <!-- уникальный однозначный номер счета (HASH) -->
+    <div class="mb-2">
+        <div class="info-label">уникальный однозначный номер счета в системе (HASH)</div>
+        <div class="info-box mono text-muted">@a.AccountId</div>
+    </div>
+
+    <!-- список клиентов (HASH) -->
+    <div class="mb-2">
+        <div class="info-label">список уникальных однозначных номеров клиентов в системе (HASH)</div>
+        <div class="info-box text-muted">
+            @(a.CustomerIds.Any() ? string.Join(", ", a.CustomerIds) : "—")
+        </div>
+    </div>
+
+    <!-- клиентский номер + код продукта -->
+    <div class="row g-2 mb-2">
+        <div class="col-md-6">
+            <div class="info-label">клиентский номер счета</div>
+            <div class="info-box fw-semibold mono">@a.AccountNumber</div>
+        </div>
+        <div class="col-md-6">
+            <div class="info-label">код продукта</div>
+            <div class="info-box">@a.ProductCode</div>
+        </div>
+    </div>
+
+    <!-- Дата открытия + Дата активации -->
+    <div class="row g-2 mb-2">
+        <div class="col-md-6">
+            <div class="info-label">Дата открытия счета</div>
+            <div class="info-box d-flex justify-content-between">
+                <span>@(a.OpenedDate == default ? "—" : a.OpenedDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))</span>
+                <span class="text-muted" style="font-size:.9rem">⏷</span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="info-label">Дата активации счета</div>
+            <div class="info-box d-flex justify-content-between">
+                <span>@(a.ActivationDate.HasValue ? a.ActivationDate.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—")</span>
+                <span class="text-muted" style="font-size:.9rem">⏷</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Дата последней транзакции -->
+    <div class="mb-2">
+        <div class="info-label">Дата последней клиентской транзакции</div>
+        <div class="info-box d-flex justify-content-between">
+            <span>@(a.LastTransactionDate.HasValue ? a.LastTransactionDate.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—")</span>
+            <span class="text-muted" style="font-size:.9rem">⏷</span>
+        </div>
+    </div>
+    <div class="row g-2 mb-2">
+        <div class="col-md-6">
+            <div class="info-label">Billing date</div>
+            <div class="info-box d-flex justify-content-between">
+                <span>@(a.BillingDate.HasValue ? a.BillingDate.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—")</span>
+                <span class="text-muted" style="font-size:.9rem">⏷</span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="info-label">Due date</div>
+            <div class="info-box d-flex justify-content-between">
+                <span>@(a.DueDate.HasValue ? a.DueDate.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—")</span>
+                <span class="text-muted" style="font-size:.9rem">⏷</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Статус -->
+    <div>
+        <div class="info-label">статус счета</div>
+        <div class="info-box">
+            @{
+                var statusCls = a.StatusValue switch {
+                    "open"             => "status-badge-open",
+                    "close"            => "status-badge-close",
+                    "sleeping"         => "status-badge-sleeping",
+                    "dormant"          => "status-badge-dormant",
+                    _                  => "status-badge-waiting",
+                };
+            }
+            <span class="badge @statusCls">@a.StatusValue</span>
+        </div>
+    </div>
+</div>
+
+<!-- ── Балансы по валютам ─────────────────────────────────── -->
+<div class="mb-4">
+    <div class="text-muted small text-uppercase fw-semibold mb-2" style="letter-spacing:.06em">Балансы</div>
+
+    @foreach (var grp in a.Balances.Items.GroupBy(b => b.Currency))
+    {
+        var cur      = grp.Key;
+        var items    = grp.ToList();
+        var dp       = items.FirstOrDefault()?.DecimalPlaces ?? 2;
+        var totBal   = items.Where(b => b.Prefix == 1).Sum(b => b.Amount)
+                     - items.Where(b => b.Prefix == 2).Sum(b => b.Amount);
+        var otb      = items.Where(b => b.Prefix == 1 && b.FinancialIndicatorCode == "001").Sum(b => b.Amount)
+                     - items.Where(b => b.Prefix == 2).Sum(b => b.Amount)
+                     - items.Where(b => b.Prefix == 4).Sum(b => b.Amount);
+
+        <div class="currency-block">
+            <div class="currency-block-header">
+                <span class="badge bg-primary me-1">@cur</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0" style="font-size:.875rem">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Валюта</th>
+                            <th>Код баланса</th>
+                            <th>Описание</th>
+                            <th class="text-end">Сумма</th>
+                            <th>Адрес баланса</th>
+                            <th>GL баланса</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in items)
+                        {
+                            <tr>
+                                <td><span class="badge bg-primary">@b.Currency</span></td>
+                                <td class="mono fw-semibold">@b.Code</td>
+                                <td>@b.Name</td>
+                                <td class="text-end mono @(b.Amount > 0 ? "" : "text-muted")">
+                                    @b.Amount.ToString("N" + b.DecimalPlaces)
+                                </td>
+                                <td class="mono">@b.Address.ToString("D10")</td>
+                                <td class="mono text-muted">@(string.IsNullOrEmpty(b.GlCode) ? "—" : b.GlCode)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="currency-block-footer">
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">сумма общего баланса в @cur</span>
+                    <span class="mono fw-semibold">@totBal.ToString("N" + dp)</span>
+                </div>
+                <div class="d-flex justify-content-between mt-1">
+                    <span class="text-muted">ОТВ в @cur</span>
+                    <span class="mono fw-semibold @(otb >= 0 ? "text-success" : "text-danger")">
+                        @otb.ToString("N" + dp)
+                    </span>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- ── Modal: Tools (операции) ──────────────────────────── -->
+<div class="modal fade" id="toolsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">Tools — Операции по счету @a.AccountNumber</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+
+                <!-- Пополнить / Снять -->
+                <div class="mb-3">
+                    <label class="form-label form-label-sm fw-semibold">Баланс</label>
+                    <select id="tBalAddr" class="form-select form-select-sm">
+                        @foreach (var b in a.Balances.Items)
+                        {
+                            <option value="@b.Address" data-dp="@b.DecimalPlaces">
+                                @b.Currency — @b.Address.ToString("D10") — @b.Name
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label form-label-sm fw-semibold">Сумма</label>
+                    <input id="tAmt" type="number" step="0.01" min="0.01" value="100" class="form-control form-control-sm" />
+                </div>
+                <div class="d-flex gap-2 mb-4">
+                    <form method="post" asp-page-handler="Deposit">
+                        <input type="hidden" name="id" value="@a.AccountId" />
+                        <input type="hidden" name="amount" id="tDepAmt" />
+                        <input type="hidden" name="balanceAddress" id="tDepAddr" />
+                        <button type="submit" class="btn btn-success btn-sm px-4"
+                                onclick="fillTool('dep')">Пополнить</button>
+                    </form>
+                    <form method="post" asp-page-handler="Withdraw">
+                        <input type="hidden" name="id" value="@a.AccountId" />
+                        <input type="hidden" name="amount" id="tWitAmt" />
+                        <input type="hidden" name="balanceAddress" id="tWitAddr" />
+                        <button type="submit" class="btn btn-danger btn-sm px-4"
+                                onclick="fillTool('wit')">Снять</button>
+                    </form>
+                </div>
+
+                <hr class="my-3" />
+
+                <!-- Блокировки -->
+                <div class="d-flex gap-2">
+                    <form method="post" asp-page-handler="ToggleCredit" class="m-0">
+                        <input type="hidden" name="id" value="@a.AccountId" />
+                        <button class="btn btn-sm @(a.CreditBlocked ? "btn-warning" : "btn-outline-secondary")">
+                            @(a.CreditBlocked ? "Разблок. зачисление" : "Блок. зачисление")
+                        </button>
+                    </form>
+                    <form method="post" asp-page-handler="ToggleDebit" class="m-0">
+                        <input type="hidden" name="id" value="@a.AccountId" />
+                        <button class="btn btn-sm @(a.DebitBlocked ? "btn-warning" : "btn-outline-secondary")">
+                            @(a.DebitBlocked ? "Разблок. списание" : "Блок. списание")
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal: Change status ──────────────────────────────── -->
+<div class="modal fade" id="statusModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">Change status</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" asp-page-handler="ChangeStatus">
+                    <input type="hidden" name="id" value="@a.AccountId" />
+                    <div class="mb-3">
+                        <select name="newStatus" class="form-select form-select-sm">
+                            @foreach (var s in AccountStatus.All)
+                            {
+                                if (s.Value == a.StatusValue) {
+                                    <option value="@s.Value" selected>@s.Value</option>
+                                } else {
+                                    <option value="@s.Value">@s.Value</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Применить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function fillTool(type) {
+    const amt  = document.getElementById('tAmt').value;
+    const addr = document.getElementById('tBalAddr').value;
+    if (type === 'dep') {
+        document.getElementById('tDepAmt').value  = amt;
+        document.getElementById('tDepAddr').value = addr;
+    } else {
+        document.getElementById('tWitAmt').value  = amt;
+        document.getElementById('tWitAddr').value = addr;
+    }
+}
+</script>
+}

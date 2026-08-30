@@ -1,0 +1,165 @@
+@page
+@model RealCoreBanking.Pages.Currencies.IndexModel
+@using RealCoreBanking.Core.Enums
+@{
+    ViewData["Title"] = "Валюты";
+    var currencies = Model.Currencies.OrderBy(c => c.AlphaCode).ToList();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0 fw-bold">Справочник валют</h4>
+    <button class="btn btn-primary btn-sm"
+            data-bs-toggle="modal" data-bs-target="#modalCurrency"
+            onclick="resetModal()">
+        + Добавить валюту
+    </button>
+</div>
+
+@if (Model.Message != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show">
+        @Model.Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="card shadow-sm">
+    <div class="card-header d-flex gap-2 align-items-center py-2">
+        <span class="fw-semibold me-2">Всего: @currencies.Count</span>
+        <input id="searchInput" type="text" class="form-control form-control-sm" style="max-width:300px"
+               placeholder="Фильтр по коду или названию…"
+               oninput="filterTable()" />
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0" id="currencyTable">
+            <thead class="table-light">
+                <tr>
+                    <th>Alpha (ISO 4217)</th>
+                    <th>Numeric</th>
+                    <th>Название</th>
+                    <th class="text-center">Знаки</th>
+                    <th>Округление</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in currencies)
+                {
+                    <tr data-search="@(c.AlphaCode + " " + c.NumericCode + " " + c.Name)".ToLower()>
+                        <td class="mono fw-bold">@c.AlphaCode</td>
+                        <td class="mono text-muted">@c.NumericCode</td>
+                        <td>@c.Name</td>
+                        <td class="text-center">@c.DecimalPlaces</td>
+                        <td class="small text-muted">@c.RoundingRule</td>
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-sm btn-outline-secondary"
+                                    onclick="openEdit('@c.AlphaCode','@c.NumericCode','@System.Web.HttpUtility.JavaScriptStringEncode(c.Name)',@c.DecimalPlaces,'@c.RoundingRule')">
+                                Изм.
+                            </button>
+                            <form method="post" asp-page-handler="Delete" class="d-inline"
+                                  onsubmit="return confirm('Удалить @c.AlphaCode?')">
+                                <input type="hidden" name="alphaCode" value="@c.AlphaCode" />
+                                <button class="btn btn-sm btn-outline-danger">Уд.</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══════════ Modal: Add / Edit Currency ══════════ -->
+<div class="modal fade" id="modalCurrency" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Save">
+                <input type="hidden" name="existingAlphaCode" id="existingAlpha" value="" />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Добавить валюту</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-4">
+                            <label class="form-label form-label-sm">Alpha-код * <small class="text-muted">(ISO 4217)</small></label>
+                            <input id="fAlpha" name="alphaCode" type="text" class="form-control mono fw-bold"
+                                   maxlength="3" placeholder="USD" required style="text-transform:uppercase" />
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label form-label-sm">Цифровой код * <small class="text-muted">(Numeric-3)</small></label>
+                            <input id="fNumeric" name="numericCode" type="text" class="form-control mono"
+                                   maxlength="3" placeholder="840" required />
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label form-label-sm">Знаки (decimal)</label>
+                            <input id="fDecimals" name="decimalPlaces" type="number"
+                                   class="form-control" min="0" max="8" value="2" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label form-label-sm">Название * <small class="text-muted">(до 128 символов)</small></label>
+                            <input id="fName" name="name" type="text" class="form-control"
+                                   maxlength="128" placeholder="US Dollar" required />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label form-label-sm">Правило округления</label>
+                            <select id="fRounding" name="roundingRule" class="form-select">
+                                @foreach (var v in Enum.GetValues<RoundingRule>())
+                                {
+                                    if (v == RoundingRule.AwayFromZero)
+                                    {
+                                        <option value="@v" selected>@v</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@v">@v</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function filterTable() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('#currencyTable tbody tr').forEach(row => {
+        row.style.display = row.dataset.search.includes(q) ? '' : 'none';
+    });
+}
+
+function resetModal() {
+    document.getElementById('existingAlpha').value = '';
+    document.getElementById('fAlpha').value        = '';
+    document.getElementById('fNumeric').value      = '';
+    document.getElementById('fName').value         = '';
+    document.getElementById('fDecimals').value     = '2';
+    document.getElementById('fRounding').value     = 'AwayFromZero';
+    document.getElementById('modalTitle').textContent = 'Добавить валюту';
+    document.getElementById('fAlpha').removeAttribute('readonly');
+}
+
+function openEdit(alpha, numeric, name, decimals, rounding) {
+    document.getElementById('existingAlpha').value = alpha;
+    document.getElementById('fAlpha').value        = alpha;
+    document.getElementById('fNumeric').value      = numeric;
+    document.getElementById('fName').value         = name;
+    document.getElementById('fDecimals').value     = decimals;
+    document.getElementById('fRounding').value     = rounding;
+    document.getElementById('modalTitle').textContent = 'Изменить валюту';
+    document.getElementById('fAlpha').setAttribute('readonly', true);
+    new bootstrap.Modal(document.getElementById('modalCurrency')).show();
+}
+
+document.getElementById('modalCurrency').addEventListener('hidden.bs.modal', resetModal);
+</script>
+}

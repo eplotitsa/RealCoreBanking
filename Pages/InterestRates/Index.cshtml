@@ -1,0 +1,155 @@
+@page
+@model RealCoreBanking.Pages.InterestRates.IndexModel
+@{
+    ViewData["Title"] = "Ставки и индексы";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold">Ставки и индексы</h4>
+</div>
+
+<!-- Interest Rates -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+        <span>Ставки процентов</span>
+        <a asp-page="/InterestRates/Create" class="btn btn-sm btn-outline-success">+ Создать ставку</a>
+    </div>
+    @if (!Model.Rates.Any())
+    {
+        <div class="card-body">
+            <p class="text-muted mb-0">Ставок нет. Загрузите демо-счёт на <a asp-page="/Index">главной</a>.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Код</th>
+                        <th>Название</th>
+                        <th>Тип</th>
+                        <th>Валюта</th>
+                        <th class="text-end">Текущая ставка</th>
+                        <th class="text-end">Спред</th>
+                        <th>Пол / Кап</th>
+                        <th>Назначение</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Rates)
+                    {
+                        <tr>
+                            <td class="mono fw-bold">
+                                <a asp-page="/InterestRates/Details" asp-route-code="@r.Code"
+                                   class="text-decoration-none">@r.Code</a>
+                            </td>
+                            <td>
+                                <a asp-page="/InterestRates/Details" asp-route-code="@r.Code"
+                                   class="text-decoration-none text-dark">@r.Name</a>
+                            </td>
+                            <td>
+                                @{
+                                    var typeCls = r.Type switch {
+                                        InterestRateType.Fixed    => "bg-success",
+                                        InterestRateType.Floating => "bg-warning text-dark",
+                                        InterestRateType.Stepped  => "bg-info text-dark",
+                                        _ => "bg-secondary"
+                                    };
+                                }
+                                <span class="badge @typeCls">@r.Type</span>
+                            </td>
+                            <td><span class="badge bg-primary">@r.Currency</span></td>
+                            <td class="text-end mono fw-bold">@r.CurrentRate.ToString("N2")%</td>
+                            <td class="text-end mono small">@(r.Spread != 0 ? $"{r.Spread:+0.00;-0.00}%" : "—")</td>
+                            <td class="mono small">
+                                @(r.Floor != 0 ? $"{r.Floor:N2}%" : "—") /
+                                @(r.Cap   != 0 ? $"{r.Cap:N2}%"   : "—")
+                            </td>
+                            <td><small class="text-muted">@r.Purpose</small></td>
+                            <td>
+                                <form method="post" asp-page-handler="DeleteRate" class="m-0"
+                                      onsubmit="return confirm('Удалить ставку @r.Code?')">
+                                    <input type="hidden" name="code" value="@r.Code" />
+                                    <button class="btn btn-sm btn-outline-danger py-0">✕</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<!-- Rate Indexes -->
+<div class="card shadow-sm">
+    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+        <span>Индексы ставок</span>
+        <a asp-page="/InterestRates/CreateIndex" class="btn btn-sm btn-outline-success">+ Создать индекс</a>
+    </div>
+    @if (!Model.Indexes.Any())
+    {
+        <div class="card-body">
+            <p class="text-muted mb-0">Индексов нет.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Код</th>
+                        <th>Название</th>
+                        <th>Тип</th>
+                        <th>Статус</th>
+                        <th class="text-end">Текущее значение</th>
+                        <th>Валюта</th>
+                        <th>Тенор</th>
+                        <th>Значений</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var idx in Model.Indexes)
+                    {
+                        var cur = idx.GetCurrentRate();
+                        <tr>
+                            <td class="mono fw-bold">
+                                <a asp-page="/InterestRates/IndexDetails" asp-route-code="@idx.Code"
+                                   class="text-decoration-none">@idx.Code</a>
+                            </td>
+                            <td>
+                                <a asp-page="/InterestRates/IndexDetails" asp-route-code="@idx.Code"
+                                   class="text-decoration-none text-dark">@idx.Name</a>
+                            </td>
+                            <td><span class="badge bg-secondary">@idx.Type</span></td>
+                            <td>
+                                @{
+                                    var stCls = idx.Status == RateIndexStatus.Active
+                                        ? "bg-success" : "bg-danger";
+                                }
+                                <span class="badge @stCls">@idx.Status</span>
+                            </td>
+                            <td class="text-end mono fw-bold">
+                                @(cur != null ? $"{cur.Value:N4}%" : "—")
+                            </td>
+                            <td><span class="badge bg-info text-dark">@idx.Currency</span></td>
+                            <td><span class="badge bg-light text-dark border">@idx.Tenor</span></td>
+                            <td>@idx.Values.Count</td>
+                            <td>
+                                <form method="post" asp-page-handler="DeleteIndex" class="m-0"
+                                      onsubmit="return confirm('Удалить индекс @idx.Code?')">
+                                    <input type="hidden" name="code" value="@idx.Code" />
+                                    <button class="btn btn-sm btn-outline-danger py-0">✕</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

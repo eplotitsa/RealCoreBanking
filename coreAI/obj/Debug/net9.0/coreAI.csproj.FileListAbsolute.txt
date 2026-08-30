@@ -1,0 +1,12 @@
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\bin\Debug\net9.0\coreAI.deps.json
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\bin\Debug\net9.0\coreAI.dll
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\bin\Debug\net9.0\coreAI.pdb
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\obj\Debug\net9.0\coreAI.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\obj\Debug\net9.0\coreAI.AssemblyInfoInputs.cache
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\obj\Debug\net9.0\coreAI.AssemblyInfo.cs
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\obj\Debug\net9.0\coreAI.csproj.CoreCompileInputs.cache
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\obj\Debug\net9.0\coreAI.sourcelink.json
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\obj\Debug\net9.0\coreAI.dll
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\obj\Debug\net9.0\refint\coreAI.dll
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\obj\Debug\net9.0\coreAI.pdb
+C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\obj\Debug\net9.0\ref\coreAI.dll

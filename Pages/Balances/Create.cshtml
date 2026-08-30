@@ -1,0 +1,169 @@
+@page
+@model RealCoreBanking.Pages.Balances.CreateModel
+@using RealCoreBanking.Core.Enums
+@using RealCoreBanking.Core.Models
+@using System.Linq
+@{
+    ViewData["Title"] = "Добавить баланс";
+}
+
+<a asp-page="/Balances/Index" class="text-muted text-decoration-none small">← Балансы</a>
+<h4 class="mt-1 mb-4 fw-bold">Добавить адрес баланса</h4>
+
+@if (Model.ErrorMessage != null)
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="card shadow-sm" style="max-width:700px">
+    <div class="card-header fw-semibold">Параметры баланса</div>
+    <div class="card-body">
+        <form method="post">
+
+            <div class="mb-3">
+                <label class="form-label">Счет <span class="text-danger">*</span></label>
+                <select name="accountId" class="form-select" required>
+                    <option value="">— выберите счет —</option>
+                    @foreach (var a in Model.Accounts.OrderBy(x => x.AccountNumber))
+                    {
+                        if (a.AccountId == Model.AccountId)
+                        {
+                            <option value="@a.AccountId" selected>@a.AccountNumber (продукт @a.ProductCode)</option>
+                        }
+                        else
+                        {
+                            <option value="@a.AccountId">@a.AccountNumber (продукт @a.ProductCode)</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-5">
+                    <label class="form-label">
+                        Адрес баланса <span class="text-danger">*</span>
+                        <small class="text-muted d-block">10 цифр: PPNNNFFIISS</small>
+                    </label>
+                    <input name="address" type="number" min="1000000000" max="9999999999"
+                           class="form-control mono" placeholder="0100000001" required />
+                    <div class="form-text">
+                        Префикс: 01=увелич. 02=уменьш. 03=нейтр. 04=блокир. 05=блок.OTB
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label">Название <span class="text-danger">*</span></label>
+                    <input name="name" type="text" class="form-control"
+                           placeholder="Основной баланс" required />
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Валюта <span class="text-danger">*</span></label>
+                    <input name="currency" type="text" class="form-control" maxlength="3"
+                           placeholder="USD" value="USD" required />
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Финансовый индикатор <span class="text-danger">*</span></label>
+                    <select name="financialIndicatorCode" class="form-select">
+                        @foreach (var fi in FinancialIndicator.All)
+                        {
+                            if (fi.Code == "001")
+                            {
+                                <option value="@fi.Code" selected>@fi.Code — @fi.Description</option>
+                            }
+                            else
+                            {
+                                <option value="@fi.Code">@fi.Code — @fi.Description</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Знаки</label>
+                    <input name="decimalPlaces" type="number" class="form-control" min="0" max="8" value="2" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Округление</label>
+                    <select name="roundingRule" class="form-select">
+                        @foreach (var v in Enum.GetValues<RoundingRule>())
+                        {
+                            if (v == RoundingRule.AwayFromZero)
+                            {
+                                <option value="@v" selected>@v</option>
+                            }
+                            else
+                            {
+                                <option value="@v">@v</option>
+                            }
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <!-- Address builder helper -->
+            <div class="alert alert-light border mb-3">
+                <strong class="small">Помощник адреса</strong>
+                <div class="row g-2 mt-1">
+                    <div class="col-4">
+                        <label class="form-label form-label-sm">Префикс (тип)</label>
+                        <select id="hp_prefix" class="form-select form-select-sm" onchange="buildAddr()">
+                            @foreach (var bt in BalanceTypeDefinition.All.OrderBy(t => t.Code))
+                            {
+                                <option value="@bt.Code">@bt.Code — @bt.Description</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label form-label-sm">Продукт (NNN)</label>
+                        <input id="hp_product" type="number" min="1" max="999" value="1"
+                               class="form-control form-control-sm mono" oninput="buildAddr()" />
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label form-label-sm">ФИ (FF)</label>
+                        <select id="hp_fi" class="form-select form-select-sm" onchange="buildAddr()">
+                            @foreach (var fi in FinancialIndicator.All)
+                            {
+                                <option value="@fi.Code">@fi.Code — @fi.Description</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span class="text-muted small">Собранный адрес: </span>
+                    <strong id="hp_result" class="mono text-primary">0100000100</strong>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2"
+                            onclick="applyAddr()">Применить →</button>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary px-4">Добавить баланс</button>
+                <a asp-page="/Balances/Index" class="btn btn-outline-secondary">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function buildAddr() {
+    const prefix  = document.getElementById('hp_prefix').value;    // "01"
+    const product = String(document.getElementById('hp_product').value).padStart(3, '0').slice(-3);
+    const fi      = document.getElementById('hp_fi').value;         // "001"
+    const addr    = prefix + product + fi + '01';                   // 2+3+3+2 = 10 digits
+    document.getElementById('hp_result').textContent = addr;
+}
+function applyAddr() {
+    const addr = document.getElementById('hp_result').textContent;
+    document.querySelector('[name="address"]').value = parseInt(addr, 10);
+    // sync FI selector
+    const fi = addr.substring(5, 8);
+    const fiSel = document.querySelector('[name="financialIndicatorCode"]');
+    for (const opt of fiSel.options) {
+        if (opt.value === fi) { opt.selected = true; break; }
+    }
+}
+buildAddr();
+</script>
+}

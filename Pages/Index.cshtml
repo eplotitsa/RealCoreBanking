@@ -1,0 +1,93 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Счета";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold">Текущие счета</h4>
+    <div class="d-flex gap-2">
+        <form method="post" asp-page-handler="LoadDemo" class="m-0">
+            <button type="submit" class="btn btn-outline-success">
+                ▶ Загрузить демо-счёт
+            </button>
+        </form>
+        <a asp-page="/Account/Open" class="btn btn-primary">+ Открыть счет</a>
+    </div>
+</div>
+
+@if (!Model.Accounts.Any())
+{
+    <div class="alert alert-info">
+        Счетов нет.
+        <a asp-page="/Account/Open">Откройте первый счет</a>
+        или нажмите <strong>Загрузить демо-счёт</strong>.
+    </div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Номер счета</th>
+                        <th>Статус</th>
+                        <th>Продукт</th>
+                        <th>Тип баланса</th>
+                        <th class="text-end">Доступный</th>
+                        <th class="text-end">Итого</th>
+                        <th>Клиенты</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in Model.Accounts)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@a.AccountNumber</strong><br />
+                                <small class="text-muted mono">@a.AccountId[..8]…</small>
+                            </td>
+                            <td>
+                                @{
+                                    var badgeClass = a.StatusValue switch {
+                                        "open"                => "bg-success",
+                                        "close"               => "bg-danger",
+                                        "waiting_for_approval"=> "bg-warning text-dark",
+                                        _                     => "bg-secondary"
+                                    };
+                                }
+                                <span class="badge @badgeClass">@a.StatusValue</span>
+                            </td>
+                            <td>@a.ProductCode</td>
+                            <td>@a.BalanceAccountType</td>
+                            <td class="text-end mono @(a.GetAvailableBalance() >= 0 ? "text-success" : "text-danger")">
+                                @a.GetAvailableBalance().ToString("N2")
+                            </td>
+                            <td class="text-end mono">@a.Balances.TotalBalance.ToString("N2")</td>
+                            <td><small>@(a.CustomerIds.Any() ? string.Join(", ", a.CustomerIds) : "—")</small></td>
+                            <td>
+                                <a asp-page="/Account/Details" asp-route-id="@a.AccountId"
+                                   class="btn btn-sm btn-outline-primary">Открыть →</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (Model.Events.Any())
+{
+    <div class="mt-4">
+        <h6 class="text-muted mb-1">Журнал событий</h6>
+        <div class="event-log">
+            @foreach (var e in Model.Events.Take(30))
+            {
+                <div>@e</div>
+            }
+        </div>
+    </div>
+}

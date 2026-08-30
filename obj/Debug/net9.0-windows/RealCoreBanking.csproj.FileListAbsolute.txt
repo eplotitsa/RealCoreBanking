@@ -1,0 +1,16 @@
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\bin\Debug\net9.0-windows\RealCoreBanking.exe
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\bin\Debug\net9.0-windows\RealCoreBanking.deps.json
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\bin\Debug\net9.0-windows\RealCoreBanking.runtimeconfig.json
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\bin\Debug\net9.0-windows\RealCoreBanking.dll
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\bin\Debug\net9.0-windows\RealCoreBanking.pdb
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\bin\Debug\net9.0-windows\CsvHelper.dll
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\obj\Debug\net9.0-windows\RealCoreBanking.csproj.AssemblyReference.cache
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\obj\Debug\net9.0-windows\RealCoreBanking.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\obj\Debug\net9.0-windows\RealCoreBanking.csproj.CoreCompileInputs.cache
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\obj\Debug\net9.0-windows\RealCoreBanking.sourcelink.json
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\obj\Debug\net9.0-windows\RealCore.A5809CD0.Up2Date
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\obj\Debug\net9.0-windows\RealCoreBanking.dll
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\obj\Debug\net9.0-windows\refint\RealCoreBanking.dll
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\obj\Debug\net9.0-windows\RealCoreBanking.pdb
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\obj\Debug\net9.0-windows\RealCoreBanking.genruntimeconfig.cache
+c:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\obj\Debug\net9.0-windows\ref\RealCoreBanking.dll

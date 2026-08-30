@@ -1,0 +1,253 @@
+@page "{code}"
+@model RealCoreBanking.Pages.InterestRates.IndexDetailsModel
+@{
+    var idx = Model.Index;
+    ViewData["Title"] = idx != null ? $"Индекс {idx.Code}" : "Индекс";
+}
+
+@if (idx == null)
+{
+    <div class="alert alert-danger">Индекс не найден.</div>
+    return;
+}
+
+<a asp-page="/InterestRates/Index" class="text-muted text-decoration-none small">← Ставки и индексы</a>
+<div class="d-flex justify-content-between align-items-start mt-1 mb-4">
+    <div>
+        <h4 class="mb-0 fw-bold">Индекс @idx.Code — @idx.Name</h4>
+        <small class="text-muted">
+            <span class="badge bg-primary">@idx.Currency</span>
+            <span class="badge bg-secondary ms-1">@idx.Type</span>
+            <span class="badge ms-1 @(idx.Status == RateIndexStatus.Active ? "bg-success" : "bg-danger")">@idx.Status</span>
+        </small>
+    </div>
+    <form method="post" asp-page-handler="Delete"
+          onsubmit="return confirm('Удалить индекс @idx.Code?')">
+        <input type="hidden" name="code" value="@idx.Code" />
+        <button class="btn btn-sm btn-outline-danger">Удалить</button>
+    </form>
+</div>
+
+<form method="post" asp-page-handler="Update">
+    <input type="hidden" name="code" value="@idx.Code" />
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Основные параметры</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label form-label-sm">Название</label>
+                    <input name="name" class="form-control" value="@idx.Name" required />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Валюта</label>
+                    <input name="currency" class="form-control" value="@idx.Currency" maxlength="3" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Тенор</label>
+                    <select name="tenor" class="form-select">
+                        @foreach (var t in new[] { "ON", "1W", "1M", "3M", "6M", "1Y", "NA" })
+                        {
+                            if (idx.Tenor == t) { <option value="@t" selected>@t</option> }
+                            else { <option value="@t">@t</option> }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Статус</label>
+                    <select name="status" class="form-select">
+                        @foreach (var v in Enum.GetValues<RealCoreBanking.Core.Models.RateIndexStatus>())
+                        {
+                            if (idx.Status == v) { <option value="@v" selected>@v</option> }
+                            else { <option value="@v">@v</option> }
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="row g-3 mt-0">
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Тип источника</label>
+                    <select name="type" class="form-select">
+                        @foreach (var v in Enum.GetValues<RealCoreBanking.Core.Models.RateIndexType>())
+                        {
+                            if (idx.Type == v) { <option value="@v" selected>@v</option> }
+                            else { <option value="@v">@v</option> }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Часовой пояс</label>
+                    <input name="timezone" class="form-control" value="@idx.Timezone" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Время публикации</label>
+                    <input name="publicationTimeStr" type="time" class="form-control"
+                           value="@idx.PublicationTime.ToString("HH:mm")" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Частота (мин.)</label>
+                    <input name="pollingFrequencyMin" type="number" class="form-control" min="1"
+                           value="@idx.PollingFrequencyMin" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Точность (знаков)</label>
+                    <input name="precision" type="number" class="form-control" min="1" max="10"
+                           value="@idx.Precision" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Источник данных</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label form-label-sm">Описание источника</label>
+                <input name="sourceDescription" class="form-control" value="@idx.SourceDescription" />
+            </div>
+            <div>
+                <label class="form-label form-label-sm">Параметры подключения (JSON)</label>
+                <textarea name="connectionParamsJson" class="form-control mono" rows="3">@idx.ConnectionParamsJson</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Контроль отклонений</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Предупреждение (%)</label>
+                    <input name="deviationWarnPercent" type="number" step="0.01" class="form-control mono"
+                           value="@idx.DeviationWarnPercent" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Блокировка (%)</label>
+                    <input name="deviationBlockPercent" type="number" step="0.01" class="form-control mono"
+                           value="@idx.DeviationBlockPercent" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Предупреждение (bp)</label>
+                    <input name="deviationWarnBp" type="number" step="0.01" class="form-control mono"
+                           value="@idx.DeviationWarnBp" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Блокировка (bp)</label>
+                    <input name="deviationBlockBp" type="number" step="0.01" class="form-control mono"
+                           value="@idx.DeviationBlockBp" />
+                </div>
+            </div>
+            <div class="row g-3 mt-0">
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Макс. устаревших периодов</label>
+                    <input name="maxAgePeriods" type="number" class="form-control" min="1"
+                           value="@idx.MaxAgePeriods" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary mb-4">Сохранить изменения</button>
+</form>
+
+<!-- Values table -->
+<div class="card shadow-sm mb-3">
+    <div class="card-header fw-semibold">
+        История значений
+        @{
+            var cur = idx.GetCurrentRate();
+        }
+        @if (cur != null)
+        {
+            <span class="badge bg-success ms-2">Текущее: @cur.Value.ToString("N4")%</span>
+        }
+    </div>
+    @if (idx.Values.Any())
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Дата значения</th>
+                        <th class="text-end">Значение (%)</th>
+                        <th>Статус</th>
+                        <th>Метод</th>
+                        <th>Автор</th>
+                        <th>Опубликовано</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in idx.Values.OrderByDescending(v => v.ValueDate))
+                    {
+                        <tr class="@(v.Status == RateValueStatus.Active ? "" : "text-muted")">
+                            <td class="mono">@v.ValueDate.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td class="text-end mono fw-bold">@v.Value.ToString("N4")%</td>
+                            <td>
+                                @{
+                                    var sc = v.Status switch {
+                                        RateValueStatus.Active => "bg-success",
+                                        RateValueStatus.PendingApproval => "bg-warning text-dark",
+                                        RateValueStatus.Superseded => "bg-secondary",
+                                        _ => "bg-danger"
+                                    };
+                                }
+                                <span class="badge @sc small">@v.Status</span>
+                            </td>
+                            <td><small>@v.InputMethod</small></td>
+                            <td><small>@v.Author</small></td>
+                            <td><small>@(v.PublishedAt.HasValue ? v.PublishedAt.Value.ToString("dd.MM.yyyy HH:mm") : "—")</small></td>
+                            <td>
+                                @if (v.Status == RateValueStatus.Active)
+                                {
+                                    <form method="post" asp-page-handler="VoidValue" class="m-0">
+                                        <input type="hidden" name="code" value="@idx.Code" />
+                                        <input type="hidden" name="valueDate" value="@v.ValueDate.ToString("yyyy-MM-ddTHH:mm:ss")" />
+                                        <button class="btn btn-sm btn-outline-warning py-0">Аннулировать</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="card-body"><p class="text-muted mb-0">Значений нет.</p></div>
+    }
+
+    <!-- Add value form -->
+    <div class="card-body border-top">
+        <form method="post" asp-page-handler="AddValue" class="row g-2 align-items-end">
+            <input type="hidden" name="code" value="@idx.Code" />
+            <div class="col-auto">
+                <label class="form-label form-label-sm">Дата значения</label>
+                <input name="valueDate" type="datetime-local" class="form-control form-control-sm"
+                       value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label form-label-sm">Значение (%)</label>
+                <input name="value" type="number" step="0.0001" class="form-control form-control-sm mono"
+                       placeholder="15.0000" style="width:130px" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label form-label-sm">Автор</label>
+                <input name="author" class="form-control form-control-sm" placeholder="Иван Иванов" style="width:160px" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label form-label-sm">Метод ввода</label>
+                <select name="inputMethod" class="form-select form-select-sm">
+                    @foreach (var v in Enum.GetValues<RealCoreBanking.Core.Models.RateInputMethod>())
+                    {
+                        <option value="@v">@v</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-success">+ Добавить значение</button>
+            </div>
+        </form>
+    </div>
+</div>

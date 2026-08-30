@@ -1,0 +1,129 @@
+@page
+@model RealCoreBanking.Pages.InterestRates.CreateIndexModel
+@{
+    ViewData["Title"] = "Создать индекс ставок";
+}
+
+<div class="row justify-content-center">
+<div class="col-xl-8">
+
+<a asp-page="/InterestRates/Index" class="text-muted text-decoration-none small">← Ставки и индексы</a>
+<h4 class="mt-1 mb-4 fw-bold">Новый индекс ставок</h4>
+
+<form method="post">
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Основные параметры</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Код (indexid)</label>
+                    <input asp-for="Code" class="form-control mono text-uppercase"
+                           placeholder="INTERNAL_FTP" required />
+                    <span asp-validation-for="Code" class="text-danger small"></span>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label form-label-sm">Название</label>
+                    <input asp-for="Name" class="form-control" placeholder="Внутренняя ставка FTP" required />
+                    <span asp-validation-for="Name" class="text-danger small"></span>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Валюта</label>
+                    <input asp-for="Currency" class="form-control" maxlength="3" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Тенор</label>
+                    <select asp-for="Tenor" class="form-select">
+                        @foreach (var t in new[] { "ON", "1W", "1M", "3M", "6M", "1Y", "NA" })
+                        {
+                            <option value="@t">@t</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="row g-3 mt-0">
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Тип источника</label>
+                    <select asp-for="Type" class="form-select"
+                            asp-items="Html.GetEnumSelectList<RealCoreBanking.Core.Models.RateIndexType>()"></select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Статус</label>
+                    <select asp-for="Status" class="form-select"
+                            asp-items="Html.GetEnumSelectList<RealCoreBanking.Core.Models.RateIndexStatus>()"></select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Часовой пояс</label>
+                    <input asp-for="Timezone" class="form-control" placeholder="UTC+8" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Точность (знаков)</label>
+                    <input asp-for="Precision" type="number" class="form-control" min="1" max="10" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Источник данных</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label form-label-sm">Описание источника</label>
+                    <input asp-for="SourceDescription" class="form-control"
+                           placeholder="РБИФ — официальный сайт BSP" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Время публикации</label>
+                    <input asp-for="PublicationTimeStr" type="time" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Частота опроса (мин.)</label>
+                    <input asp-for="PollingFrequencyMin" type="number" class="form-control" min="1" />
+                </div>
+            </div>
+            <div class="mt-3">
+                <label class="form-label form-label-sm">Параметры подключения (JSON)</label>
+                <textarea asp-for="ConnectionParamsJson" class="form-control mono" rows="3"
+                          placeholder='{"url": "https://...", "api_key": "..."}'>@Model.ConnectionParamsJson</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Контроль отклонений</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Предупреждение (%)</label>
+                    <input asp-for="DeviationWarnPercent" type="number" step="0.01" class="form-control mono" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Блокировка (%)</label>
+                    <input asp-for="DeviationBlockPercent" type="number" step="0.01" class="form-control mono" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Предупреждение (bp)</label>
+                    <input asp-for="DeviationWarnBp" type="number" step="0.01" class="form-control mono" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Блокировка (bp)</label>
+                    <input asp-for="DeviationBlockBp" type="number" step="0.01" class="form-control mono" />
+                </div>
+            </div>
+            <div class="row g-3 mt-0">
+                <div class="col-md-3">
+                    <label class="form-label form-label-sm">Макс. устаревших периодов</label>
+                    <input asp-for="MaxAgePeriods" type="number" class="form-control" min="1" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary px-4">Создать индекс</button>
+        <a asp-page="/InterestRates/Index" class="btn btn-outline-secondary">Отмена</a>
+    </div>
+</form>
+
+</div>
+</div>

@@ -1,0 +1,238 @@
+@page
+@model RealCoreBanking.Pages.Account.OpenModel
+@using RealCoreBanking.Core.Enums
+@using RealCoreBanking.Core.Models
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Открытие счета";
+    var fiOptions    = string.Join("", FinancialIndicator.All.Select(f => $"<option value=\"{f.Code}\">{f.Code} — {f.Description}</option>"));
+    var roundOptions = string.Join("", Enum.GetNames<RoundingRule>().Select(r => $"<option value=\"{r}\">{r}</option>"));
+
+    // Build product-balances map for JS: { productCode: [{address, name, currency, decimalPlaces, rounding, fiCode}] }
+    var pbMap = new Dictionary<int, object>();
+    foreach (var prod in Model.Products)
+    {
+        if (prod.ProductBalances.Count == 0) continue;
+        var items = prod.ProductBalances.Select(pb => {
+            var cur = Model.Products.Any() ? null : (Currency?)null; // looked up server-side on POST
+            return new {
+                address      = pb.BalanceAddress.ToString("D10"),
+                name         = pb.BalanceName,
+                currency     = pb.CurrencyCode,
+                fiCode       = "001",  // will be resolved server-side from BalanceDefinition
+            };
+        }).ToList();
+        pbMap[prod.Code] = items;
+    }
+    var pbMapJson = JsonSerializer.Serialize(pbMap);
+}
+
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+
+    <h4 class="mb-4 fw-bold">Открытие нового счета</h4>
+
+    @if (Model.Error != null)
+    {
+        <div class="alert alert-danger">@Model.Error</div>
+    }
+
+    <form method="post">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold">Параметры счета</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Номер счета</label>
+              <input asp-for="AccountNumber" class="form-control" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Тип книги</label>
+              <input asp-for="BookType" class="form-control" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Тип баланса</label>
+              <select asp-for="BalanceAccountType" asp-items="Html.GetEnumSelectList<BalanceAccountType>()" class="form-select"></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Продукт</label>
+              @if (Model.Products.Any())
+              {
+                  <select asp-for="ProductCode" class="form-select" onchange="onProductChange(this.value)">
+                      @foreach (var p in Model.Products.OrderBy(p => p.Code))
+                      {
+                          <option value="@p.Code">@p.Code — @p.Name</option>
+                      }
+                  </select>
+              }
+              else
+              {
+                  <input asp-for="ProductCode" type="number" class="form-control" />
+                  <div class="form-text text-muted">Продукты не созданы</div>
+              }
+            </div>
+            <div class="col-12">
+              <label class="form-label">ID Клиентов <small class="text-muted">(через запятую)</small></label>
+              <input asp-for="CustomerIds" class="form-control" placeholder="CLIENT001, CLIENT002" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Balances from product definition (read-only preview) -->
+      <div class="card shadow-sm mb-4" id="productBalancesCard">
+        <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+          <span>Балансы из продукта</span>
+          <small class="text-muted" id="productBalancesHint">Валюта и точность берутся из справочника валют</small>
+        </div>
+        <div id="productBalancesBody">
+          <!-- filled by JS -->
+        </div>
+      </div>
+
+      <!-- Manual balance fallback (shown only when product has no defined balances) -->
+      <div class="card shadow-sm mb-4" id="manualBalancesCard" style="display:none">
+        <div class="card-header d-flex justify-content-between align-items-center fw-semibold">
+          <span>Балансы <small class="text-muted">(продукт без шаблона балансов)</small></span>
+          <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRow()">+ Добавить</button>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Адрес (10 цифр)</th>
+                  <th>Название</th>
+                  <th>Фин. индикатор</th>
+                  <th>Валюта</th>
+                  <th>Знаков</th>
+                  <th>Округление</th>
+                  <th>Влияние</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="balanceBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary px-4">Открыть счет</button>
+        <a asp-page="/Index" class="btn btn-outline-secondary">Отмена</a>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+@section Scripts {
+<script>
+const PB_MAP       = @Html.Raw(pbMapJson);
+const fiOptions    = `@Html.Raw(fiOptions)`;
+const roundOptions = `@Html.Raw(roundOptions)`;
+let rowIdx = 0;
+
+function onProductChange(code) {
+    const balances = PB_MAP[code];
+    const card     = document.getElementById('productBalancesCard');
+    const manual   = document.getElementById('manualBalancesCard');
+    const body     = document.getElementById('productBalancesBody');
+
+    if (balances && balances.length > 0) {
+        card.style.display   = '';
+        manual.style.display = 'none';
+
+        let html = '<div class="table-responsive"><table class="table table-sm align-middle mb-0">'
+                 + '<thead class="table-light"><tr>'
+                 + '<th>#</th><th>Адрес</th><th>Название</th><th>Валюта</th>'
+                 + '<th title="Точность берётся из справочника валют при открытии">Знаков*</th>'
+                 + '<th>Начальная сумма</th>'
+                 + '</tr></thead><tbody>';
+        balances.forEach((b, i) => {
+            html += `<tr>
+                <td class="text-muted">${i + 1}</td>
+                <td class="mono">${b.address}</td>
+                <td>${b.name}</td>
+                <td><span class="badge bg-light text-dark border">${b.currency}</span></td>
+                <td class="text-muted">авто</td>
+                <td class="text-muted">0.00</td>
+            </tr>`;
+        });
+        html += '</tbody></table></div>'
+              + '<div class="p-2"><small class="text-muted">* Точность (DecimalPlaces) и правило округления берутся из справочника валют в момент открытия счёта.</small></div>';
+        body.innerHTML = html;
+    } else {
+        card.style.display   = 'none';
+        manual.style.display = '';
+    }
+}
+
+// Manual balance row (fallback)
+function addRow(addr, name, fi, cur, dp, rnd) {
+    addr = addr || '0100000001';
+    name = name || (rowIdx === 0 ? 'Main' : 'Balance' + rowIdx);
+    fi   = fi   || '001';
+    cur  = cur  || 'USD';
+    dp   = dp   !== undefined ? dp  : 2;
+    rnd  = rnd  || 'AwayFromZero';
+
+    const i = rowIdx++;
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td><input name="Balances[${i}].Address" value="${addr}"
+           class="form-control form-control-sm addr-input" style="width:120px"
+           oninput="updateImpact(this)" /></td>
+      <td><input name="Balances[${i}].Name" value="${name}" class="form-control form-control-sm" /></td>
+      <td><select name="Balances[${i}].FICode" class="form-select form-select-sm" style="min-width:180px">
+            ${fiOptions.replace(`value="${fi}"`, `value="${fi}" selected`)}
+          </select></td>
+      <td><input name="Balances[${i}].Currency" value="${cur}" class="form-control form-control-sm" style="width:65px" maxlength="3" /></td>
+      <td><input name="Balances[${i}].DecimalPlaces" type="number" value="${dp}" min="0" max="10" class="form-control form-control-sm" style="width:65px" /></td>
+      <td><select name="Balances[${i}].Rounding" class="form-select form-select-sm" style="min-width:150px">
+            ${roundOptions.replace(`value="${rnd}"`, `value="${rnd}" selected`)}
+          </select></td>
+      <td class="impact-cell text-muted" style="font-size:.8rem;white-space:nowrap"></td>
+      <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">✕</button></td>`;
+    document.getElementById('balanceBody').appendChild(row);
+    updateImpact(row.querySelector('.addr-input'));
+    renumber();
+}
+
+function removeRow(btn) {
+    btn.closest('tr').remove();
+    renumber();
+}
+
+function renumber() {
+    document.querySelectorAll('#balanceBody tr').forEach((row, i) => {
+        row.querySelectorAll('input,select').forEach(el => {
+            if (el.name) el.name = el.name.replace(/Balances\[\d+\]/, `Balances[${i}]`);
+        });
+    });
+    rowIdx = document.querySelectorAll('#balanceBody tr').length;
+}
+
+function updateImpact(input) {
+    const cell = input.closest('tr').querySelector('.impact-cell');
+    const addr = input.value;
+    if (addr.length !== 10 || isNaN(+addr)) { cell.textContent = '?'; return; }
+    const p = parseInt(addr.substring(0, 2));
+    const map = {1:'↑ IncreasesTotal', 2:'↓ DecreasesTotal', 3:'= NoEffect', 4:'⊘ BlocksTotal'};
+    cell.textContent = map[p] || '?';
+}
+
+// Init on page load
+(function() {
+    const sel = document.querySelector('select[name="ProductCode"]');
+    if (sel) {
+        onProductChange(sel.value);
+    } else {
+        // No product select (plain input) — show manual
+        document.getElementById('productBalancesCard').style.display = 'none';
+        document.getElementById('manualBalancesCard').style.display  = '';
+        addRow();
+    }
+})();
+</script>
+}

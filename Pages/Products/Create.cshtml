@@ -1,0 +1,388 @@
+@page
+@model RealCoreBanking.Pages.Products.CreateModel
+@using RealCoreBanking.Core.Models
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Создание продукта";
+    var balDefsJson = JsonSerializer.Serialize(
+        Model.BalanceDefs.OrderBy(d => d.Code).Select(d => new { id = d.Id, code = d.Code, name = d.Name, fi = d.FinancialIndicatorCode })
+    );
+    var currenciesJson = JsonSerializer.Serialize(
+        Model.Currencies.OrderBy(c => c.AlphaCode).Select(c => new { code = c.AlphaCode, name = c.Name })
+    );
+}
+
+<div class="mb-4">
+    <a asp-page="/Products/Index" class="text-muted text-decoration-none">← Продукты</a>
+    <h4 class="mb-0 mt-1 fw-bold">Создание продукта</h4>
+</div>
+
+@if (Model.Error != null)
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+<form method="post" onsubmit="renumberRows()">
+
+    <!-- ── 1. Основные параметры ──────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Основные параметры</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Код <span class="text-danger">*</span></label>
+                    <input asp-for="Code" type="number" min="1" class="form-control" required placeholder="123" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label form-label-sm">Название <span class="text-danger">*</span></label>
+                    <input asp-for="Name" class="form-control" required placeholder="Current Account PHP" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">База начисления</label>
+                    <select asp-for="AccrualBasis" class="form-select">
+                        @foreach (var b in CreateModel.AccrualBases)
+                        {
+                            <option value="@b">@b</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Тип баланса</label>
+                    <select asp-for="BalanceType" class="form-select">
+                        @foreach (var t in Enum.GetValues<RealCoreBanking.Core.Enums.BalanceAccountType>())
+                        {
+                            <option value="@t">@t</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm">Лимит овердрафта</label>
+                    <input asp-for="DefaultOverdraftLimit" type="number" step="0.01" class="form-control mono" placeholder="0" />
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-12">
+                    <label class="form-label form-label-sm fw-semibold">Поддерживаемые функции</label>
+                    <div class="d-flex gap-4 flex-wrap">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" asp-for="SupportsStandingOrders" id="chkSO" />
+                            <label class="form-check-label small" for="chkSO">Поручения (Standing Orders)</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" asp-for="SupportsDirectDebit" id="chkDD" />
+                            <label class="form-check-label small" for="chkDD">Прямое дебетование</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" asp-for="SupportsAuthorizationHolds" id="chkAH" />
+                            <label class="form-check-label small" for="chkAH">Авторизационные холды</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" asp-for="SupportsPendingObligationQueue" id="chkPoQ" />
+                            <label class="form-check-label small" for="chkPoQ">Очередь обязательств (PoQ)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── 2. Балансы продукта ───────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">Балансы продукта</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addBalance()">+ Добавить</button>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0" id="balTable">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:220px">Определение баланса</th>
+                        <th style="width:160px">Описание</th>
+                        <th style="width:100px">Валюта</th>
+                        <th style="width:130px">Адрес (10 цифр)</th>
+                        <th style="width:110px">GL код</th>
+                        <th style="width:40px"></th>
+                    </tr>
+                </thead>
+                <tbody id="balBody"></tbody>
+            </table>
+            <p class="text-muted small px-3 pb-2 mb-0" id="balEmpty">Нет балансов. Нажмите «+ Добавить».</p>
+        </div>
+    </div>
+
+    <!-- ── 3. GL Коды ────────────────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">GL Коды</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addGl()">+ Добавить</button>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Валюта</th>
+                        <th>Финансовый признак</th>
+                        <th>GL счет</th>
+                        <th style="width:50px"></th>
+                    </tr>
+                </thead>
+                <tbody id="glBody"></tbody>
+            </table>
+            <p class="text-muted small px-3 pb-2 mb-0" id="glEmpty">Нет GL кодов. Нажмите «+ Добавить».</p>
+        </div>
+    </div>
+
+    <!-- ── 4. Адреса балансов долга ──────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">Адреса балансов долга</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addDebt()">+ Добавить</button>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Адрес (10 цифр)</th>
+                        <th>Валюта</th>
+                        <th style="width:50px"></th>
+                    </tr>
+                </thead>
+                <tbody id="debtBody"></tbody>
+            </table>
+            <p class="text-muted small px-3 pb-2 mb-0" id="debtEmpty">Нет адресов долга.</p>
+        </div>
+    </div>
+
+    <!-- ── 5. Ставки ─────────────────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">Ставки</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRate()">+ Добавить</button>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Код ставки</th>
+                        <th>Название</th>
+                        <th>Фин. признаки (через запятую)</th>
+                        <th style="width:50px"></th>
+                    </tr>
+                </thead>
+                <tbody id="rateBody"></tbody>
+            </table>
+            <p class="text-muted small px-3 pb-2 mb-0" id="rateEmpty">Нет ставок.</p>
+        </div>
+    </div>
+
+    <!-- ── 6. Таблица процентов ──────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">Таблица процентов (Dictionary of Interest)</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addDict()">+ Добавить</button>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>От суммы остатка</th>
+                        <th>Модификатор ставки (%)</th>
+                        <th style="width:50px"></th>
+                    </tr>
+                </thead>
+                <tbody id="dictBody"></tbody>
+            </table>
+            <p class="text-muted small px-3 pb-2 mb-0" id="dictEmpty">Нет записей.</p>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary px-4">Сохранить продукт</button>
+        <a asp-page="/Products/Index" class="btn btn-outline-secondary">Отмена</a>
+    </div>
+
+</form>
+
+@section Scripts {
+<script>
+const BAL_DEFS = @Html.Raw(balDefsJson);
+const ALL_CURR = @Html.Raw(currenciesJson);
+let glN = 0, debtN = 0, rateN = 0, balN = 0, dictN = 0;
+const FI_OPTIONS = `
+    <option value="001">001 — Основная сумма</option>
+    <option value="002">002 — Начисл. проценты</option>
+    <option value="003">003 — Начисл. убытки</option>
+    <option value="004">004 — Внебалансовые</option>
+    <option value="005">005 — Блокировка</option>
+    <option value="006">006 — Использ. овердрафт</option>`;
+
+// ── Балансы ────────────────────────────────────────────────────────────────────
+function addBalance() {
+    document.getElementById('balEmpty').style.display = 'none';
+    const i = balN++;
+    const defOptions = BAL_DEFS.map(d =>
+        `<option value="${d.id}" data-fi="${d.fi}">${d.code} — ${d.name}</option>`
+    ).join('');
+
+    const row = document.createElement('tr');
+    row.id = 'bal' + i;
+    row.innerHTML = `
+        <td>
+          <select name="Balances[${i}].BalanceDefinitionId" class="form-select form-select-sm bal-def-sel"
+                  onchange="balDefChanged(this,${i})">${defOptions}</select>
+        </td>
+        <td><input name="Balances[${i}].BalanceName" class="form-control form-control-sm"
+                   placeholder="Total balance" /></td>
+        <td>
+          <div class="position-relative">
+            <input type="text" class="form-control form-control-sm bal-cur-search" placeholder="USD"
+                   autocomplete="off" oninput="balFilterCurr(this,${i})" onfocus="balShowDrop(this,${i})"
+                   onblur="setTimeout(()=>balHideDrop(${i}),200)" />
+            <input type="hidden" name="Balances[${i}].CurrencyCode" class="bal-cur-val" value="USD" />
+            <div class="dropdown-menu p-0 show bal-cur-drop" id="balDrop${i}"
+                 style="display:none!important;max-height:160px;overflow-y:auto;min-width:200px;position:absolute;z-index:9999">
+            </div>
+          </div>
+        </td>
+        <td><input name="Balances[${i}].BalanceAddress" type="number" class="form-control form-control-sm mono bal-addr"
+                   min="1" placeholder="0100000001" oninput="balAddrGuess(this,${i})" /></td>
+        <td><input name="Balances[${i}].GlCode" class="form-control form-control-sm mono"
+                   placeholder="2101001" /></td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger"
+                    onclick="del('bal${i}','balBody','balEmpty')">✕</button></td>`;
+    document.getElementById('balBody').appendChild(row);
+
+    row.querySelector('.bal-cur-search').value = 'USD';
+    balRenderDrop(i);
+    if (BAL_DEFS.length > 0) balDefChanged(row.querySelector('.bal-def-sel'), i);
+}
+
+function balDefChanged(sel, i) {
+    const opt  = sel.options[sel.selectedIndex];
+    const fi   = opt ? opt.dataset.fi : '001';
+    const row  = document.getElementById('bal' + i);
+    const addr = row.querySelector('.bal-addr');
+    const code = sel.value ? (sel.options[sel.selectedIndex]?.text?.substring(0,2) || '01') : '01';
+    if (!addr.value) addr.value = code.padStart(2,'0') + fi + '00001';
+}
+
+function balAddrGuess(input, i) { /* manual entry — no auto-fill */ }
+
+function balRenderDrop(i) {
+    const row    = document.getElementById('bal' + i);
+    const search = row.querySelector('.bal-cur-search').value.toLowerCase();
+    const drop   = document.getElementById('balDrop' + i);
+    const hits   = ALL_CURR.filter(c =>
+        c.code.toLowerCase().includes(search) || c.name.toLowerCase().includes(search)
+    ).slice(0, 30);
+    drop.innerHTML = hits.map(c =>
+        `<a class="dropdown-item py-1 small" href="#"
+            onclick="balSelectCurr(${i},'${c.code}');return false">${c.code} — ${c.name}</a>`
+    ).join('') || '<span class="dropdown-item text-muted small">Не найдено</span>';
+}
+
+function balFilterCurr(input, i) { balRenderDrop(i); balShowDrop(input, i); }
+
+function balShowDrop(input, i) {
+    balRenderDrop(i);
+    document.getElementById('balDrop' + i).style.cssText = 'display:block!important;max-height:160px;overflow-y:auto;min-width:200px;position:absolute;z-index:9999';
+}
+
+function balHideDrop(i) {
+    const d = document.getElementById('balDrop' + i);
+    if (d) d.style.cssText = 'display:none!important';
+}
+
+function balSelectCurr(i, code) {
+    const row = document.getElementById('bal' + i);
+    row.querySelector('.bal-cur-search').value = code;
+    row.querySelector('.bal-cur-val').value    = code;
+    balHideDrop(i);
+}
+
+// ── GL Коды ───────────────────────────────────────────────────────────────────
+function addGl() {
+    document.getElementById('glEmpty').style.display = 'none';
+    const i = glN++;
+    document.getElementById('glBody').insertAdjacentHTML('beforeend', `
+        <tr id="gl${i}">
+            <td><input name="GlCodes[${i}].Currency" class="form-control form-control-sm"
+                       value="PHP" maxlength="3" style="width:80px" /></td>
+            <td><select name="GlCodes[${i}].FinancialIndicatorCode" class="form-select form-select-sm"
+                        style="width:220px">${FI_OPTIONS}</select></td>
+            <td><input name="GlCodes[${i}].GlCode" class="form-control form-control-sm mono"
+                       placeholder="00000001" /></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger"
+                        onclick="del('gl${i}','glBody','glEmpty')">✕</button></td>
+        </tr>`);
+}
+
+// ── Адреса долга ──────────────────────────────────────────────────────────────
+function addDebt() {
+    document.getElementById('debtEmpty').style.display = 'none';
+    const i = debtN++;
+    document.getElementById('debtBody').insertAdjacentHTML('beforeend', `
+        <tr id="debt${i}">
+            <td><input name="DebtBalanceAddresses[${i}].Address" type="number"
+                       class="form-control form-control-sm mono" placeholder="0210000003"
+                       style="width:170px" /></td>
+            <td><input name="DebtBalanceAddresses[${i}].Currency" class="form-control form-control-sm"
+                       value="PHP" maxlength="3" style="width:80px" /></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger"
+                        onclick="del('debt${i}','debtBody','debtEmpty')">✕</button></td>
+        </tr>`);
+}
+
+// ── Ставки ────────────────────────────────────────────────────────────────────
+function addRate() {
+    document.getElementById('rateEmpty').style.display = 'none';
+    const i = rateN++;
+    document.getElementById('rateBody').insertAdjacentHTML('beforeend', `
+        <tr id="rate${i}">
+            <td><input name="Rates[${i}].Code" type="number" class="form-control form-control-sm mono"
+                       placeholder="2021" style="width:100px" /></td>
+            <td><input name="Rates[${i}].Name" class="form-control form-control-sm"
+                       placeholder="current account rate php" /></td>
+            <td><input name="Rates[${i}].FiCodes" class="form-control form-control-sm mono"
+                       value="001" placeholder="001,002" style="width:140px" /></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger"
+                        onclick="del('rate${i}','rateBody','rateEmpty')">✕</button></td>
+        </tr>`);
+}
+
+// ── Dictionary of Interest ────────────────────────────────────────────────────
+function addDict() {
+    document.getElementById('dictEmpty').style.display = 'none';
+    const i = dictN++;
+    document.getElementById('dictBody').insertAdjacentHTML('beforeend', `
+        <tr id="dict${i}">
+            <td><input name="DictEntries[${i}].Threshold" type="number" step="0.01"
+                       class="form-control form-control-sm mono" placeholder="100000" style="width:150px" /></td>
+            <td><input name="DictEntries[${i}].Modifier" type="number" step="0.0001"
+                       class="form-control form-control-sm mono" placeholder="0.5000" style="width:130px" /></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger"
+                        onclick="del('dict${i}','dictBody','dictEmpty')">✕</button></td>
+        </tr>`);
+}
+
+// ── Общее ─────────────────────────────────────────────────────────────────────
+function del(rowId, bodyId, emptyId) {
+    document.getElementById(rowId).remove();
+    if (!document.getElementById(bodyId).children.length)
+        document.getElementById(emptyId).style.display = '';
+}
+
+function renumberRows() {
+    ['gl', 'debt', 'rate', 'bal', 'dict'].forEach(pref => {
+        const body = document.getElementById(pref + 'Body');
+        if (!body) return;
+        Array.from(body.children).forEach((row, i) => {
+            row.querySelectorAll('[name]').forEach(el => {
+                el.name = el.name.replace(/\[\d+\]/, `[${i}]`);
+            });
+        });
+    });
+    return true;
+}
+</script>
+}

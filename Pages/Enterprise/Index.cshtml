@@ -1,0 +1,77 @@
+@page
+@model RealCoreBanking.Pages.Enterprise.IndexModel
+@{
+    ViewData["Title"] = "Банковская дата";
+    var e = Model.Enterprise;
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+
+        <h4 class="mb-4 fw-bold">&#128467; Банковская дата</h4>
+
+        <!-- Current date card -->
+        <div class="card shadow-sm mb-4 text-center">
+            <div class="card-body py-4">
+                <div class="display-5 fw-bold text-primary mb-1">
+                    @e.BankingDate.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"))
+                </div>
+                <div class="text-muted small">@e.Name &nbsp;|&nbsp; Часовой пояс: @e.Timezone</div>
+            </div>
+        </div>
+
+        <!-- Advance date -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header fw-semibold">Продвинуть дату</div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="Advance" class="row g-2 align-items-end">
+                    <div class="col-auto">
+                        <label class="form-label form-label-sm">Дней вперед</label>
+                        <input type="number" name="days" value="1" min="1" max="365"
+                               class="form-control form-control-sm" style="width:100px" />
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            &#8594; Продвинуть
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Set specific date -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header fw-semibold">Установить дату вручную</div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="SetDate" class="row g-2 align-items-end">
+                    <div class="col-auto">
+                        <label class="form-label form-label-sm">Банковская дата</label>
+                        <input type="date" name="bankingDate"
+                               value="@e.BankingDate.ToString("yyyy-MM-dd")"
+                               class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-outline-primary btn-sm">
+                            Установить
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Stop application -->
+        <div class="card shadow-sm border-danger">
+            <div class="card-header fw-semibold text-danger">Остановка приложения</div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">Завершает работу сервера. Все данные в памяти будут утеряны.</p>
+                <form method="post" asp-page-handler="Stop"
+                      onsubmit="return confirm('Действительно остановить приложение?')">
+                    <button type="submit" class="btn btn-danger">
+                        &#9632; Остановить приложение
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>

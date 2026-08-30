@@ -1,0 +1,125 @@
+@page
+@model RealCoreBanking.Pages.FinancialIndicators.IndexModel
+@{
+    ViewData["Title"] = "Финансовый признак баланса";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="mb-0 fw-bold">Финансовый признак баланса</h4>
+        <small class="text-muted">Справочник финансовых признаков. Код — 3 цифры.</small>
+    </div>
+</div>
+
+@if (Model.Message != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show">
+        @Model.Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="card shadow-sm mb-4">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:120px">Код (3 цифры)</th>
+                    <th>Описание</th>
+                    <th style="width:110px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.All.Any())
+                {
+                    <tr>
+                        <td colspan="3" class="text-muted text-center py-4">
+                            Справочник пуст. Добавьте первый финансовый признак.
+                        </td>
+                    </tr>
+                }
+                @foreach (var fi in Model.All.OrderBy(f => f.Code))
+                {
+                    <tr>
+                        <td class="mono fw-semibold">@fi.Code</td>
+                        <td>@fi.Description</td>
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-sm btn-outline-secondary"
+                                    onclick="openEdit('@fi.Code', '@Html.Raw(fi.Description.Replace("'", "\\'"))')">
+                                Изм.
+                            </button>
+                            <form method="post" asp-page-handler="Delete" class="d-inline"
+                                  onsubmit="return confirm('Удалить «@fi.Code»?')">
+                                <input type="hidden" name="code" value="@fi.Code" />
+                                <button class="btn btn-sm btn-outline-danger">Уд.</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add form -->
+<div class="card shadow-sm" style="max-width:520px">
+    <div class="card-header fw-semibold">Добавить финансовый признак</div>
+    <div class="card-body">
+        <form method="post" asp-page-handler="Add">
+            <div class="row g-3 align-items-end">
+                <div class="col-4">
+                    <label class="form-label form-label-sm">Код <span class="text-danger">*</span></label>
+                    <input asp-for="NewCode" class="form-control mono" maxlength="3"
+                           placeholder="010" pattern="\d{3}" title="3 цифры" />
+                </div>
+                <div class="col-6">
+                    <label class="form-label form-label-sm">Описание <span class="text-danger">*</span></label>
+                    <input asp-for="NewDescription" class="form-control" placeholder="Название признака" />
+                </div>
+                <div class="col-2">
+                    <button type="submit" class="btn btn-primary w-100">+</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Edit">
+                <div class="modal-header">
+                    <h6 class="modal-title">Изменить признак</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="code" id="editCode" />
+                    <div class="mb-3">
+                        <label class="form-label form-label-sm">Код</label>
+                        <input id="editCodeDisplay" type="text" class="form-control form-control-sm mono bg-light" readonly />
+                    </div>
+                    <div>
+                        <label class="form-label form-label-sm">Описание <span class="text-danger">*</span></label>
+                        <input type="text" name="description" id="editDescription" class="form-control form-control-sm" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function openEdit(code, description) {
+    document.getElementById('editCode').value        = code;
+    document.getElementById('editCodeDisplay').value = code;
+    document.getElementById('editDescription').value = description;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+</script>
+}

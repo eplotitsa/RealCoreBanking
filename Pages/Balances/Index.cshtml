@@ -1,0 +1,173 @@
+@page
+@model RealCoreBanking.Pages.Balances.IndexModel
+@using RealCoreBanking.Core.Enums
+@using RealCoreBanking.Core.Models
+@using System.Linq
+@{
+    ViewData["Title"] = "Справочник балансов";
+    var defs = Model.Definitions.OrderBy(d => d.BalanceTypePrefix).ThenBy(d => d.FinancialIndicatorCode).ToList();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="mb-0 fw-bold">Справочник балансов</h4>
+        <small class="text-muted">Каталог типов балансов. Валюта и GL-адрес задаются при добавлении баланса в продукт.</small>
+    </div>
+    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalDef"
+            onclick="resetDefModal()">
+        + Добавить
+    </button>
+</div>
+
+@if (Model.Message != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show">
+        @Model.Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Код баланса</th>
+                    <th>Описание</th>
+                    <th>Тип баланса</th>
+                    <th>Финансовый индикатор</th>
+                    <th>Влияние</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!defs.Any())
+                {
+                    <tr>
+                        <td colspan="6" class="text-muted text-center py-4">
+                            Справочник пуст. Нажмите «+ Добавить» чтобы создать первый тип баланса.
+                        </td>
+                    </tr>
+                }
+                @foreach (var d in defs)
+                {
+                    var fi = FinancialIndicator.FromCode(d.FinancialIndicatorCode);
+                    var (impIcon, impCls, impLabel) = d.Impact switch {
+                        BalanceImpact.IncreasesTotal => ("↑", "text-success",  "Увеличивает итог"),
+                        BalanceImpact.DecreasesTotal => ("↓", "text-danger",   "Уменьшает итог"),
+                        BalanceImpact.BlocksTotal    => ("⊘", "text-warning",  "Блокирует итог"),
+                        _                            => ("=", "text-secondary","Нейтральный"),
+                    };
+                    <tr>
+                        <td class="mono fw-bold fs-6">@d.Code</td>
+                        <td>@d.Name</td>
+                        <td>
+                            <span class="badge bg-secondary">@d.BalanceTypePrefix.ToString("D2")</span>
+                            <small class="text-muted ms-1">@d.BalanceTypePrefixLabel()</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border">@d.FinancialIndicatorCode</span>
+                            <small class="text-muted ms-1">@(fi?.Description)</small>
+                        </td>
+                        <td><span class="@impCls fw-semibold">@impIcon @impLabel</span></td>
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-sm btn-outline-secondary"
+                                    onclick="openEditDef('@d.Id','@d.Name',@d.BalanceTypePrefix,'@d.FinancialIndicatorCode')">
+                                Изм.
+                            </button>
+                            <form method="post" asp-page-handler="DeleteDefinition" class="d-inline"
+                                  onsubmit="return confirm('Удалить «@d.Name»?')">
+                                <input type="hidden" name="id" value="@d.Id" />
+                                <button class="btn btn-sm btn-outline-danger">Уд.</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Add / Edit Balance Definition -->
+<div class="modal fade" id="modalDef" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="SaveDefinition">
+                <input type="hidden" name="id" id="defId" value="" />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalDefTitle">Добавить тип баланса</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="form-label form-label-sm">Тип баланса (префикс) *</label>
+                            <select id="defPrefix" name="balanceTypePrefix" class="form-select"
+                                    onchange="updateCode()">
+                                @foreach (var bt in BalanceTypeDefinition.All.OrderBy(t => t.Code))
+                                {
+                                    if (!int.TryParse(bt.Code, out var prefixInt)) continue;
+                                    <option value="@prefixInt">@bt.Code — @bt.Description</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label form-label-sm">Финансовый индикатор *</label>
+                            <select id="defFi" name="financialIndicatorCode" class="form-select"
+                                    onchange="updateCode()">
+                                @foreach (var fi in FinancialIndicator.All)
+                                {
+                                    <option value="@fi.Code">@fi.Code — @fi.Description</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label form-label-sm">Код баланса</label>
+                            <input id="defCodeDisplay" type="text"
+                                   class="form-control mono fw-bold bg-light" readonly value="01001"
+                                   title="Вычисляется: тип(2) + ФИ(3)" />
+                            <div class="form-text">Авто</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label form-label-sm">Описание / Название *</label>
+                            <input id="defName" name="name" type="text" class="form-control"
+                                   placeholder="Total balance" required />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function updateCode() {
+    const prefix = String(document.getElementById('defPrefix').value).padStart(2, '0');
+    const fi     = document.getElementById('defFi').value;
+    document.getElementById('defCodeDisplay').value = prefix + fi;
+}
+function resetDefModal() {
+    document.getElementById('defId').value    = '';
+    document.getElementById('defName').value  = '';
+    document.getElementById('defPrefix').value= '1';
+    document.getElementById('defFi').value    = '001';
+    document.getElementById('modalDefTitle').textContent = 'Добавить тип баланса';
+    updateCode();
+}
+function openEditDef(id, name, prefix, fi) {
+    document.getElementById('defId').value    = id;
+    document.getElementById('defName').value  = name;
+    document.getElementById('defPrefix').value= String(prefix);
+    document.getElementById('defFi').value    = fi;
+    document.getElementById('modalDefTitle').textContent = 'Изменить тип баланса';
+    updateCode();
+    new bootstrap.Modal(document.getElementById('modalDef')).show();
+}
+updateCode();
+</script>
+}
