@@ -14,6 +14,7 @@ public class DetailsModel : PageModel
     public string Id { get; set; } = "";
 
     public Core.Models.CurrentAccount? Account { get; private set; }
+    public Core.Models.Product?        Product { get; private set; }
     public IReadOnlyList<string> Events { get; private set; } = Array.Empty<string>();
     public string? Message { get; private set; }
 
@@ -23,9 +24,19 @@ public class DetailsModel : PageModel
     {
         Account = _store.Get(Id);
         if (Account == null) return NotFound();
-        Events = _store.RecentEvents;
+        Product = _store.GetProduct(Account.ProductCode);
+        Events  = _store.RecentEvents;
         Message = msg;
         return Page();
+    }
+
+    public string GetBalanceRate(string fiCode)
+    {
+        if (Product == null) return "";
+        var entry = Product.Rates.FirstOrDefault(r => r.FinancialIndicatorCodes.Contains(fiCode));
+        if (entry == null) return "";
+        var rate = _store.GetInterestRate(entry.Code);
+        return rate != null ? $"{rate.CurrentRate:F2}%" : "";
     }
 
     public IActionResult OnPostDeposit(string id, decimal amount, long balanceAddress)

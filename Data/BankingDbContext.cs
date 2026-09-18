@@ -20,6 +20,7 @@ public class BankingDbContext : DbContext
     public DbSet<BalanceDefinitionEntity>   BalanceDefinitions    { get; set; }
     public DbSet<FinancialIndicatorEntity>  FinancialIndicators   { get; set; }
     public DbSet<BalanceTypeEntity>         BalanceTypes          { get; set; }
+    public DbSet<GlAccountEntity>           GlAccounts            { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {

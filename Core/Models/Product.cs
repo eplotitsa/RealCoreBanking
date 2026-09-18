@@ -33,6 +33,7 @@ public class Product
     public bool SupportsDirectDebit { get; set; }
     public bool SupportsAuthorizationHolds { get; set; }
     public bool SupportsPendingObligationQueue { get; set; }
+    public bool SupportsDebtList { get; set; }
 
     // Default overdraft limit for new accounts opened under this product
     public decimal DefaultOverdraftLimit { get; set; }

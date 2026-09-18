@@ -1,4 +1,4 @@
-@page "{code:int}"
+@page "/Products/{code:int}"
 @model RealCoreBanking.Pages.Products.DetailsModel
 @using RealCoreBanking.Core.Enums
 @using RealCoreBanking.Core.Models
@@ -13,6 +13,22 @@
         .ThenBy(b => b.BalanceCode)
         .GroupBy(b => b.CurrencyCode)
         .ToList();
+
+    // For cascading debt address modal: currency → list of balances
+    var debtBalJson = System.Text.Json.JsonSerializer.Serialize(
+        p.ProductBalances
+            .GroupBy(b => b.CurrencyCode)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(b => b.BalanceCode)
+                       .Select(b => new {
+                           address = b.BalanceAddress.ToString("D10"),
+                           name    = b.BalanceName,
+                           code    = b.BalanceCode
+                       })
+                       .ToArray()
+            )
+    );
 }
 
 <style>
@@ -450,50 +466,34 @@
 <div class="sect-card">
     <div class="sect-hdr"><span>Links</span></div>
     <div class="p-3">
+        @{
+            var linkDefs = new[]
+            {
+                ("supportsStandingOrders",         p.SupportsStandingOrders,         "link: список постоянных поручений"),
+                ("supportsDirectDebit",            p.SupportsDirectDebit,            "link: структура direct debit"),
+                ("supportsAuthorizationHolds",     p.SupportsAuthorizationHolds,     "link: структура authorization hold"),
+                ("supportsPendingObligationQueue", p.SupportsPendingObligationQueue, "link: pending obligation queue"),
+                ("supportsDebtList",               p.SupportsDebtList,               "link: debt list"),
+            };
+        }
         @if (edit)
         {
-            <div class="mb-2">
-                <input type="checkbox" name="supportsStandingOrders" value="true"
-                       form="basicForm" class="form-check-input me-2"
-                       @(p.SupportsStandingOrders ? "checked" : "") />
-                <label>link: список постоянных поручений</label>
-            </div>
-            <div class="mb-2">
-                <input type="checkbox" name="supportsDirectDebit" value="true"
-                       form="basicForm" class="form-check-input me-2"
-                       @(p.SupportsDirectDebit ? "checked" : "") />
-                <label>link: структура direct debit</label>
-            </div>
-            <div class="mb-2">
-                <input type="checkbox" name="supportsAuthorizationHolds" value="true"
-                       form="basicForm" class="form-check-input me-2"
-                       @(p.SupportsAuthorizationHolds ? "checked" : "") />
-                <label>link: структура authorization hold</label>
-            </div>
-            <div class="mb-2">
-                <input type="checkbox" name="supportsPendingObligationQueue" value="true"
-                       form="basicForm" class="form-check-input me-2"
-                       @(p.SupportsPendingObligationQueue ? "checked" : "") />
-                <label>link: pending obligation queue</label>
-            </div>
-            <div class="mb-2 text-muted">
-                <span class="form-check-input me-2" style="display:inline-block;width:1em"></span>
-                link: debt list
-            </div>
+            foreach (var (fname, fval, flabel) in linkDefs)
+            {
+                <div class="mb-2">
+                    <input type="checkbox" name="@fname" value="true"
+                           form="basicForm" class="form-check-input me-2"
+                           checked="@fval" />
+                    <label>@flabel</label>
+                </div>
+            }
         }
         else
         {
-            var flags = new[] {
-                (p.SupportsStandingOrders,         "link: список постоянных поручений"),
-                (p.SupportsDirectDebit,            "link: структура direct debit"),
-                (p.SupportsAuthorizationHolds,     "link: структура authorization hold"),
-                (p.SupportsPendingObligationQueue, "link: pending obligation queue"),
-                (false,                            "link: debt list"),
-            };
-            foreach (var (on, label) in flags)
+            foreach (var (_, fval, flabel) in linkDefs)
             {
-                <div class="mb-1 @(on ? "" : "text-muted")">
-                    <span class="me-2">@(on ? "☑" : "☐")</span>@label
+                <div class="mb-1 @(fval ? "" : "text-muted")">
+                    <span class="me-2">@(fval ? "☑" : "☐")</span>@flabel
                 </div>
             }
         }
@@ -514,55 +514,107 @@
      Modal: Add Balance
      ══════════════════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalAddBal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <form method="post" asp-page-handler="AddProductBalance">
                 <input type="hidden" name="code" value="@p.Code" />
                 <div class="modal-header">
-                    <h6 class="modal-title">Добавить баланс</h6>
+                    <h6 class="modal-title">Add balance</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label form-label-sm">Определение баланса <span class="text-danger">*</span></label>
-                        <select name="balanceDefinitionId" id="addBalDef" class="form-select form-select-sm"
-                                onchange="updateAddBalCode()">
-                            <option value="">— выберите —</option>
-                            @foreach (var d in Model.BalanceDefs.OrderBy(d => d.Code))
-                            {
-                                <option value="@d.Id" data-code="@d.Code">@d.Code — @d.Name</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="row g-3">
+                    <!-- Row 1: адрес баланса | название баланса | Код баланса (computed) -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-4">
+                            <label class="form-label form-label-sm">адрес баланса <span class="text-danger">*</span></label>
+                            <input name="balanceAddress" id="addBalAddr" type="number"
+                                   class="form-control form-control-sm mono"
+                                   placeholder="0100000001" min="1000000000" max="9999999999" required />
+                        </div>
                         <div class="col-5">
+                            <label class="form-label form-label-sm">название баланса <span class="text-danger">*</span></label>
+                            <input name="balanceName" id="addBalName" type="text"
+                                   class="form-control form-control-sm" placeholder="Total balance" required />
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label form-label-sm">Код баланса</label>
+                            <input id="addBalCodeDisplay" type="text"
+                                   class="form-control form-control-sm mono bg-light fw-semibold" readonly
+                                   placeholder="—" />
+                        </div>
+                    </div>
+                    <!-- Row 2: Валюта | Список балансов | GL -->
+                    <div class="row g-3">
+                        <div class="col-3">
                             <label class="form-label form-label-sm">Валюта <span class="text-danger">*</span></label>
                             <select name="currencyCode" class="form-select form-select-sm">
                                 @foreach (var c in Model.Currencies.OrderBy(c => c.AlphaCode))
                                 {
-                                    <option value="@c.AlphaCode">@c.AlphaCode — @c.Name</option>
+                                    <option value="@c.AlphaCode">@c.AlphaCode</option>
                                 }
                             </select>
                         </div>
+                        <div class="col-5">
+                            <label class="form-label form-label-sm">Список балансов <span class="text-danger">*</span></label>
+                            @if (Model.AllBalanceDefinitions.Any())
+                            {
+                                <select id="addBalDefSel" class="form-select form-select-sm"
+                                        onchange="onBalDefSelect(this)" required>
+                                    <option value="">— выберите —</option>
+                                    @foreach (var bd in Model.AllBalanceDefinitions.OrderBy(b => b.Code))
+                                    {
+                                        <option value="@bd.FinancialIndicatorCode"
+                                                data-prefix="@bd.BalanceTypePrefix"
+                                                data-code="@bd.Code"
+                                                data-name="@Html.Raw(bd.Name.Replace("\"","&quot;"))">
+                                            @bd.Code — @bd.Name
+                                        </option>
+                                    }
+                                </select>
+                                <input type="hidden" name="fiCode" id="addBalFi" />
+                                <input type="hidden" name="balanceTypePrefix" id="addBalType" />
+                            }
+                            else
+                            {
+                                <div class="d-flex gap-1">
+                                    <select name="fiCode" id="addBalFi" class="form-select form-select-sm"
+                                            onchange="updateBalCode()" required>
+                                        <option value="">ФП</option>
+                                        @foreach (var fi in RealCoreBanking.Core.Enums.FinancialIndicator.All.OrderBy(f => f.Code))
+                                        {
+                                            <option value="@fi.Code">@fi.Code — @fi.Description</option>
+                                        }
+                                    </select>
+                                    <select name="balanceTypePrefix" id="addBalType" class="form-select form-select-sm"
+                                            onchange="updateBalCode()" required>
+                                        <option value="">Тип</option>
+                                        @foreach (var bt in RealCoreBanking.Core.Models.BalanceTypeDefinition.All.OrderBy(t => t.Code))
+                                        {
+                                            if (int.TryParse(bt.Code, out var pfx))
+                                            {
+                                                <option value="@pfx">@bt.Code — @bt.Description</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                                <small class="text-muted">Справочник балансов пуст. Будет создано автоматически.</small>
+                            }
+                        </div>
                         <div class="col-4">
-                            <label class="form-label form-label-sm">Адрес (10 цифр) <span class="text-danger">*</span></label>
-                            <input name="balanceAddress" type="number" id="addBalAddr"
-                                   class="form-control form-control-sm mono"
-                                   placeholder="0100000001" min="1000000000" max="9999999999" />
+                            <label class="form-label form-label-sm">GL</label>
+                            <select name="glCode" class="form-select form-select-sm">
+                                <option value="">— не выбран —</option>
+                                @foreach (var gl in Model.AllGlAccounts.OrderBy(g => g.Number))
+                                {
+                                    <option value="@gl.Number">@gl.Number — @gl.Name</option>
+                                }
+                            </select>
                         </div>
-                        <div class="col-3">
-                            <label class="form-label form-label-sm">GL счет</label>
-                            <input name="glCode" type="text" class="form-control form-control-sm mono"
-                                   placeholder="00000001" />
-                        </div>
-                    </div>
-                    <div class="mt-2 small text-muted">
-                        Код баланса: <span id="addBalCodePreview" class="mono fw-semibold">—</span>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
-                    <button type="submit" class="btn btn-primary btn-sm">Добавить</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Add</button>
                 </div>
             </form>
         </div>
@@ -593,8 +645,13 @@
                     </div>
                     <div>
                         <label class="form-label form-label-sm">GL счет</label>
-                        <input type="text" name="glCode" id="editBalGl"
-                               class="form-control form-control-sm mono" placeholder="00000001" />
+                        <select name="glCode" id="editBalGl" class="form-select form-select-sm">
+                            <option value="">— не выбран —</option>
+                            @foreach (var gl in Model.AllGlAccounts.OrderBy(g => g.Number))
+                            {
+                                <option value="@gl.Number">@gl.Number — @gl.Name</option>
+                            }
+                        </select>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -621,17 +678,20 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label form-label-sm">Валюта <span class="text-danger">*</span></label>
-                        <select name="currency" class="form-select form-select-sm">
-                            @foreach (var c in Model.Currencies.OrderBy(c => c.AlphaCode))
+                        <select name="currency" id="debtCurrencySel" class="form-select form-select-sm"
+                                onchange="onDebtCurrencyChange()" required>
+                            <option value="">— выберите валюту —</option>
+                            @foreach (var cur in p.ProductBalances.Select(b => b.CurrencyCode).Distinct().OrderBy(c => c))
                             {
-                                <option value="@c.AlphaCode">@c.AlphaCode — @c.Name</option>
+                                <option value="@cur">@cur</option>
                             }
                         </select>
                     </div>
                     <div>
-                        <label class="form-label form-label-sm">Адрес баланса (10 цифр) <span class="text-danger">*</span></label>
-                        <input name="address" type="number" class="form-control form-control-sm mono"
-                               placeholder="0100000001" min="1000000000" max="9999999999" />
+                        <label class="form-label form-label-sm">Адрес баланса <span class="text-danger">*</span></label>
+                        <select name="address" id="debtAddressSel" class="form-select form-select-sm mono" required>
+                            <option value="">— сначала выберите валюту —</option>
+                        </select>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -711,19 +771,58 @@ function syncRateName(sel) {
     document.getElementById('addRateNameHidden').value = opt ? (opt.dataset.name || '') : '';
 }
 
-function updateAddBalCode() {
-    const opt = document.getElementById('addBalDef').selectedOptions[0];
-    const code = opt ? (opt.dataset.code || '—') : '—';
-    document.getElementById('addBalCodePreview').textContent = code;
-    if (code !== '—') {
-        const prefix = code.substring(0, 2);
+// ── Balance definition selection (when catalog exists) ───────────────────
+function onBalDefSelect(sel) {
+    const opt = sel.selectedOptions[0];
+    if (!opt || !opt.value) {
+        document.getElementById('addBalFi').value = '';
+        document.getElementById('addBalType').value = '';
+        document.getElementById('addBalCodeDisplay').value = '';
+        return;
+    }
+    document.getElementById('addBalFi').value   = opt.value;
+    document.getElementById('addBalType').value = opt.dataset.prefix;
+    document.getElementById('addBalCodeDisplay').value = opt.dataset.code;
+    const nameEl = document.getElementById('addBalName');
+    if (nameEl && !nameEl.value) nameEl.value = opt.dataset.name;
+    const addr = document.getElementById('addBalAddr');
+    if (addr && !addr.value) {
+        const prefix = parseInt(opt.dataset.prefix).toString().padStart(2, '0');
+        addr.value = prefix + '00000001';
+    }
+}
+
+// ── Balance code preview (fallback: manual FI + type select) ─────────────
+function updateBalCode() {
+    const fi   = document.getElementById('addBalFi').value;
+    const type = document.getElementById('addBalType').value;
+    if (fi && type) {
+        const prefix = parseInt(type).toString().padStart(2, '0');
+        const code   = prefix + fi;
+        document.getElementById('addBalCodeDisplay').value = code;
         const addr = document.getElementById('addBalAddr');
         if (!addr.value) addr.value = prefix + '00000001';
+    } else {
+        document.getElementById('addBalCodeDisplay').value = '';
     }
 }
 
 // ── Debt selection ───────────────────────────────────────────────────────
 let selDebt = null;
+const debtBalMap = @Html.Raw(debtBalJson);
+
+function onDebtCurrencyChange() {
+    const cur = document.getElementById('debtCurrencySel').value;
+    const sel = document.getElementById('debtAddressSel');
+    sel.innerHTML = '<option value="">— выберите адрес —</option>';
+    if (!cur || !debtBalMap[cur]) return;
+    debtBalMap[cur].forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.address;
+        opt.textContent = b.code + ' — ' + b.name + '  (' + b.address + ')';
+        sel.appendChild(opt);
+    });
+}
 function onDebtChk(cb) {
     document.querySelectorAll('.debt-chk').forEach(c => { if (c !== cb) c.checked = false; });
     selDebt = cb.checked ? cb.value : null;  // "address|currency"
@@ -731,6 +830,8 @@ function onDebtChk(cb) {
     document.getElementById('btnDelDebt').disabled  = !selDebt;
 }
 function openAddDebt() {
+    document.getElementById('debtCurrencySel').value = '';
+    document.getElementById('debtAddressSel').innerHTML = '<option value="">— сначала выберите валюту —</option>';
     new bootstrap.Modal(document.getElementById('modalAddDebt')).show();
 }
 function openEditDebt() {

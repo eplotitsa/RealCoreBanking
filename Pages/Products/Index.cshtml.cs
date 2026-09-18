@@ -13,6 +13,7 @@ public class IndexModel : PageModel
     public string? Search { get; set; }
 
     public List<Product> Products { get; set; } = new();
+    public Dictionary<int, int> AccountCounts { get; set; } = new();
 
     public IndexModel(AccountStore store) => _store = store;
 
@@ -24,6 +25,10 @@ public class IndexModel : PageModel
                 p.Name.Contains(Search, StringComparison.OrdinalIgnoreCase))
             .OrderBy(p => p.Code)
             .ToList();
+
+        AccountCounts = _store.All
+            .GroupBy(a => a.ProductCode)
+            .ToDictionary(g => g.Key, g => g.Count());
     }
 
     public IActionResult OnPostDelete(int code)

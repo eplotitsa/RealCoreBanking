@@ -12,9 +12,10 @@ public class DetailsModel : PageModel
 
     public Product?                              Product     { get; set; }
     public List<InterestRate>                    LinkedRates { get; set; } = new();
-    public IReadOnlyCollection<BalanceDefinition> BalanceDefs => _store.AllBalanceDefinitions;
-    public IReadOnlyCollection<Currency>          Currencies  => _store.AllCurrencies;
-    public IReadOnlyCollection<InterestRate>      AllRates    => _store.AllRates;
+    public IReadOnlyCollection<Currency>          Currencies    => _store.AllCurrencies;
+    public IReadOnlyCollection<InterestRate>      AllRates      => _store.AllRates;
+    public IReadOnlyList<(string Number, string Name, string BalanceType)> AllGlAccounts       => _store.AllGlAccounts;
+    public IReadOnlyCollection<BalanceDefinition>                         AllBalanceDefinitions => _store.AllBalanceDefinitions;
     public bool                                   EditMode    { get; private set; }
 
     public DetailsModel(AccountStore store) => _store = store;
@@ -31,7 +32,7 @@ public class DetailsModel : PageModel
     // ── Basic fields ────────────────────────────────────────────────────────
     public IActionResult OnPostUpdateBasic(int code, string name, string accrualBasis,
         BalanceAccountType balanceType, bool supportsStandingOrders, bool supportsDirectDebit,
-        bool supportsAuthorizationHolds, bool supportsPendingObligationQueue,
+        bool supportsAuthorizationHolds, bool supportsPendingObligationQueue, bool supportsDebtList,
         decimal defaultOverdraftLimit)
     {
         var p = Require(code);
@@ -42,25 +43,38 @@ public class DetailsModel : PageModel
         p.SupportsDirectDebit            = supportsDirectDebit;
         p.SupportsAuthorizationHolds     = supportsAuthorizationHolds;
         p.SupportsPendingObligationQueue = supportsPendingObligationQueue;
+        p.SupportsDebtList               = supportsDebtList;
         p.DefaultOverdraftLimit          = defaultOverdraftLimit;
         _store.SaveProduct(p);
         return Reload(code);  // return to view mode after save
     }
 
     // ── Product balances ────────────────────────────────────────────────────
-    public IActionResult OnPostAddProductBalance(int code, string balanceDefinitionId,
-        string currencyCode, long balanceAddress, string glCode)
+    public IActionResult OnPostAddProductBalance(int code, string fiCode, int balanceTypePrefix,
+        string balanceName, string currencyCode, long balanceAddress, string glCode)
     {
-        var p   = Require(code);
-        var def = _store.GetBalanceDefinition(balanceDefinitionId);
-        if (def == null) return Reload(code, edit: true);
+        var p = Require(code);
+
+        // Find or create a matching BalanceDefinition
+        var def = _store.AllBalanceDefinitions
+            .FirstOrDefault(d => d.FinancialIndicatorCode == fiCode && d.BalanceTypePrefix == balanceTypePrefix);
+        if (def == null)
+        {
+            def = new BalanceDefinition
+            {
+                FinancialIndicatorCode = fiCode,
+                BalanceTypePrefix      = balanceTypePrefix,
+                Name                   = (balanceName ?? "").Trim(),
+            };
+            _store.SaveBalanceDefinition(def);
+        }
 
         p.ProductBalances.Add(new ProductBalance
         {
             BalanceDefinitionId = def.Id,
             BalanceCode         = def.Code,
-            BalanceName         = def.Name,
-            CurrencyCode        = currencyCode.ToUpper().Trim(),
+            BalanceName         = string.IsNullOrWhiteSpace(balanceName) ? def.Name : balanceName.Trim(),
+            CurrencyCode        = (currencyCode ?? "USD").ToUpper().Trim(),
             BalanceAddress      = balanceAddress,
             GlCode              = (glCode ?? "").Trim(),
         });

@@ -20,6 +20,7 @@ public class AccountStore
     private readonly IBalanceDefinitionRepository?  _balDefRepo;
     private readonly IFinancialIndicatorRepository? _fiRepo;
     private readonly IBalanceTypeRepository?        _btRepo;
+    private readonly IGlAccountRepository?          _glRepo;
 
     public Enterprise Enterprise { get; } = new Enterprise();
 
@@ -30,7 +31,8 @@ public class AccountStore
         IProductRepository?            productRepo   = null,
         IBalanceDefinitionRepository?  balDefRepo    = null,
         IFinancialIndicatorRepository? fiRepo        = null,
-        IBalanceTypeRepository?        btRepo        = null)
+        IBalanceTypeRepository?        btRepo        = null,
+        IGlAccountRepository?          glRepo        = null)
     {
         _rateRepo     = rateRepo;
         _indexRepo    = indexRepo;
@@ -39,6 +41,7 @@ public class AccountStore
         _balDefRepo   = balDefRepo;
         _fiRepo       = fiRepo;
         _btRepo       = btRepo;
+        _glRepo       = glRepo;
 
         // Restore persisted data from DB on startup
         if (_rateRepo  != null) foreach (var r in _rateRepo.GetAll())  _rates[r.Code]   = r;
@@ -251,7 +254,11 @@ public class AccountStore
     public BalanceDefinition? GetBalanceDefinition(string id)               => _balDefRepo?.Get(id);
     public IReadOnlyCollection<BalanceDefinition> AllBalanceDefinitions     => _balDefRepo?.GetAll() ?? [];
 
-    public void DeleteBalanceDefinition(string id) => _balDefRepo?.Delete(id);
+    public void SaveBalanceDefinition(BalanceDefinition def)  => _balDefRepo?.Save(def);
+    public void DeleteBalanceDefinition(string id)             => _balDefRepo?.Delete(id);
+
+    public IReadOnlyList<(string Number, string Name, string BalanceType)> AllGlAccounts =>
+        _glRepo?.GetAll() ?? [];
 
     // ─── Financial Indicators (persisted) ───────────────────────────────────
 

@@ -4,82 +4,80 @@
     ViewData["Title"] = "Продукты";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0 fw-bold">Продукты</h4>
-    <a asp-page="/Products/Create" class="btn btn-primary">+ Создать продукт</a>
 </div>
 
-<form method="get" class="mb-3 d-flex gap-2">
-    <input type="text" name="search" value="@Model.Search"
-           placeholder="Поиск по коду или названию..."
-           class="form-control" style="max-width:380px" />
-    <button type="submit" class="btn btn-outline-secondary">Поиск</button>
-    @if (!string.IsNullOrEmpty(Model.Search))
-    {
-        <a asp-page="/Products/Index" class="btn btn-outline-secondary">Сброс</a>
-    }
-</form>
+<div class="d-flex gap-2 mb-3">
+    <a asp-page="/Products/Create" class="btn btn-sm btn-outline-secondary">Add</a>
+    <button id="btnEdit" class="btn btn-sm btn-outline-secondary" disabled
+            onclick="openSelected()">Edit</button>
+    <form method="post" asp-page-handler="Delete" id="frmDelete" class="m-0"
+          onsubmit="return confirm('Удалить продукт?')">
+        <input type="hidden" name="code" id="delCode" />
+        <button type="submit" id="btnDelete" class="btn btn-sm btn-outline-danger" disabled>Delete</button>
+    </form>
+</div>
 
 @if (!Model.Products.Any())
 {
-    <div class="alert alert-info">
-        Продуктов нет.
-        <a asp-page="/Products/Create">Создайте первый продукт</a>.
-    </div>
+    <div class="text-muted small">Продуктов нет. Нажмите Add чтобы создать первый.</div>
 }
 else
 {
     <div class="card shadow-sm">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-dark">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
                     <tr>
-                        <th>Код</th>
-                        <th>Название</th>
-                        <th>База начисл.</th>
-                        <th>Тип баланса</th>
-                        <th class="text-center">GL кодов</th>
-                        <th class="text-center">Ставок</th>
-                        <th class="text-center">Адресов долга</th>
-                        <th></th>
+                        <th style="width:32px"></th>
+                        <th>#</th>
+                        <th style="width:130px">Код продукта</th>
+                        <th>Название продукта</th>
+                        <th class="text-center">Число счетов</th>
                     </tr>
                 </thead>
                 <tbody>
+                    @{ int rowNum = 1; }
                     @foreach (var p in Model.Products)
                     {
-                        <tr>
-                            <td class="mono fw-bold">@p.Code</td>
+                        var accountCount = Model.AccountCounts.TryGetValue(p.Code, out var cnt) ? cnt : 0;
+                        <tr data-code="@p.Code" style="cursor:pointer" onclick="selectRow(this)">
+                            <td>
+                                <input type="checkbox" class="prod-chk form-check-input"
+                                       value="@p.Code" onchange="onChk(this)" onclick="event.stopPropagation()" />
+                            </td>
+                            <td class="text-muted">@rowNum</td>
+                            <td class="mono fw-semibold">@p.Code</td>
                             <td>@p.Name</td>
-                            <td><span class="badge bg-info text-dark">@p.AccrualBasis</span></td>
-                            <td>
-                                @{
-                                    var btCls = p.BalanceType switch {
-                                        RealCoreBanking.Core.Enums.BalanceAccountType.Active   => "bg-success",
-                                        RealCoreBanking.Core.Enums.BalanceAccountType.Passive  => "bg-primary",
-                                        RealCoreBanking.Core.Enums.BalanceAccountType.OffBalance => "bg-secondary",
-                                        _ => "bg-warning text-dark"
-                                    };
-                                }
-                                <span class="badge @btCls">@p.BalanceType</span>
-                            </td>
-                            <td class="text-center">@p.GlCodes.Count</td>
-                            <td class="text-center">@p.Rates.Count</td>
-                            <td class="text-center">@p.DebtBalanceAddresses.Count</td>
-                            <td>
-                                <div class="d-flex gap-1 justify-content-end">
-                                    <a asp-page="/Products/Details" asp-route-code="@p.Code"
-                                       class="btn btn-sm btn-outline-primary">Открыть →</a>
-                                    <form method="post" asp-page-handler="Delete" class="m-0"
-                                          onsubmit="return confirm('Удалить продукт @p.Code (@p.Name)?')">
-                                        <input type="hidden" name="code" value="@p.Code" />
-                                        <button class="btn btn-sm btn-outline-danger">✕</button>
-                                    </form>
-                                </div>
-                            </td>
+                            <td class="text-center text-muted">@accountCount</td>
                         </tr>
+                        rowNum++;
                     }
                 </tbody>
             </table>
         </div>
     </div>
+}
+
+@section Scripts {
+<script>
+let selCode = null;
+function selectRow(row) {
+    document.querySelectorAll('.prod-chk').forEach(c => c.checked = false);
+    const chk = row.querySelector('.prod-chk');
+    chk.checked = true;
+    onChk(chk);
+}
+function onChk(cb) {
+    document.querySelectorAll('.prod-chk').forEach(c => { if (c !== cb) c.checked = false; });
+    selCode = cb.checked ? cb.value : null;
+    document.getElementById('btnEdit').disabled   = !selCode;
+    document.getElementById('btnDelete').disabled = !selCode;
+    document.getElementById('delCode').value = selCode ?? '';
+}
+function openSelected() {
+    if (selCode) window.location.href = `/Products/${selCode}?edit=true`;
+}
+</script>
 }

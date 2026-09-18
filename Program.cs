@@ -23,6 +23,7 @@ builder.Services.AddSingleton<IProductRepository,            EfProductRepository
 builder.Services.AddSingleton<IBalanceDefinitionRepository,  EfBalanceDefinitionRepository>();
 builder.Services.AddSingleton<IFinancialIndicatorRepository, EfFinancialIndicatorRepository>();
 builder.Services.AddSingleton<IBalanceTypeRepository,        EfBalanceTypeRepository>();
+builder.Services.AddSingleton<IGlAccountRepository,          EfGlAccountRepository>();
 
 // ── AccountStore — receives repositories, loads from DB in constructor ─────────
 builder.Services.AddSingleton<AccountStore>();
@@ -68,6 +69,13 @@ using (var ctx = dbFactory.CreateDbContext())
         CREATE TABLE IF NOT EXISTS "BalanceTypes" (
             "Code"        TEXT NOT NULL CONSTRAINT "PK_BalanceTypes" PRIMARY KEY,
             "Description" TEXT NOT NULL DEFAULT ''
+        )
+        """);
+    ctx.Database.ExecuteSqlRaw("""
+        CREATE TABLE IF NOT EXISTS "GlAccounts" (
+            "AccountNumber" TEXT NOT NULL CONSTRAINT "PK_GlAccounts" PRIMARY KEY,
+            "Name"          TEXT NOT NULL DEFAULT '',
+            "BalanceType"   TEXT NOT NULL DEFAULT 'Assets'
         )
         """);
 }

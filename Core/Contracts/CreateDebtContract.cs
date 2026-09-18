@@ -14,19 +14,26 @@ public class CreateDebtContract : ISmartContract
     {
         account.DebtArray ??= new DebtArray();
 
+        var billingDate = account.BillingDate?.Date ?? DateTime.Today;
+        var dueDate     = account.DueDate?.Date     ?? DateTime.Today;
+
+        // Order follows the sequence of DebtBalanceAddresses in the product
+        int order = 0;
         foreach (var debtRef in _product.DebtBalanceAddresses)
         {
             var balance = account.Balances.GetByAddress(debtRef.Address, debtRef.Currency);
-            if (balance == null || balance.Amount <= 0) continue;
+            if (balance == null || balance.Amount <= 0) { order++; continue; }
 
             account.DebtArray.Debts.Add(new DebtComponent
             {
-                FinancialIndicatorCode = balance.FinancialIndicatorCode,
-                Amount                 = balance.Amount,
-                Currency               = balance.Currency,
-                EntryDate              = DateTime.Today,
-                Description            = balance.Name,
+                Order       = order,
+                Address     = debtRef.Address,
+                Currency    = balance.Currency,
+                BillingDate = billingDate,
+                DueDate     = dueDate,
+                Amount      = balance.Amount,
             });
+            order++;
         }
     }
 }

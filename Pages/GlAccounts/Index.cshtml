@@ -1,0 +1,157 @@
+@page
+@model RealCoreBanking.Pages.GlAccounts.IndexModel
+@{
+    ViewData["Title"] = "План счетов";
+    var typeBadge = (string t) => t switch {
+        "Assets"     => "bg-primary",
+        "Liability"  => "bg-success",
+        "OffBalance" => "bg-secondary",
+        _            => "bg-secondary"
+    };
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="mb-0 fw-bold">План счетов</h4>
+        <small class="text-muted">Справочник GL-счетов. Тип: Assets | Liability | OffBalance.</small>
+    </div>
+</div>
+
+@if (Model.Message != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show">
+        @Model.Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="card shadow-sm mb-4">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:160px">Номер счета</th>
+                    <th>Название</th>
+                    <th style="width:130px">Тип баланса</th>
+                    <th style="width:110px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.All.Any())
+                {
+                    <tr>
+                        <td colspan="4" class="text-muted text-center py-4">
+                            Справочник пуст. Добавьте первый счет.
+                        </td>
+                    </tr>
+                }
+                @foreach (var acc in Model.All)
+                {
+                    <tr>
+                        <td class="mono fw-semibold">@acc.Number</td>
+                        <td>@acc.Name</td>
+                        <td>
+                            <span class="badge @typeBadge(acc.BalanceType)">@acc.BalanceType</span>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <button class="btn btn-sm btn-outline-secondary"
+                                    onclick="openEdit('@acc.Number',
+                                                     '@Html.Raw(acc.Name.Replace("'", "\\'"))',
+                                                     '@acc.BalanceType')">
+                                Изм.
+                            </button>
+                            <form method="post" asp-page-handler="Delete" class="d-inline"
+                                  onsubmit="return confirm('Удалить счет «@acc.Number»?')">
+                                <input type="hidden" name="number" value="@acc.Number" />
+                                <button class="btn btn-sm btn-outline-danger">Уд.</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add form -->
+<div class="card shadow-sm" style="max-width:640px">
+    <div class="card-header fw-semibold">Добавить счет</div>
+    <div class="card-body">
+        <form method="post" asp-page-handler="Add">
+            <div class="row g-3 align-items-end">
+                <div class="col-3">
+                    <label class="form-label form-label-sm">Номер <span class="text-danger">*</span></label>
+                    <input asp-for="NewNumber" class="form-control mono" placeholder="2101001" maxlength="20" />
+                </div>
+                <div class="col-5">
+                    <label class="form-label form-label-sm">Название <span class="text-danger">*</span></label>
+                    <input asp-for="NewName" class="form-control" placeholder="Основной счет" maxlength="127" />
+                </div>
+                <div class="col-2">
+                    <label class="form-label form-label-sm">Тип</label>
+                    <select asp-for="NewBalanceType" class="form-select">
+                        @foreach (var t in IndexModel.BalanceTypes)
+                        {
+                            <option value="@t">@t</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-2">
+                    <button type="submit" class="btn btn-primary w-100">+</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Edit">
+                <div class="modal-header">
+                    <h6 class="modal-title">Изменить счет</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="number" id="editNumber" />
+                    <div class="mb-3">
+                        <label class="form-label form-label-sm">Номер счета</label>
+                        <input id="editNumberDisplay" type="text"
+                               class="form-control form-control-sm mono bg-light" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label form-label-sm">Название <span class="text-danger">*</span></label>
+                        <input type="text" name="name" id="editName"
+                               class="form-control form-control-sm" maxlength="127" required />
+                    </div>
+                    <div>
+                        <label class="form-label form-label-sm">Тип баланса</label>
+                        <select name="balanceType" id="editBalanceType" class="form-select form-select-sm">
+                            @foreach (var t in IndexModel.BalanceTypes)
+                            {
+                                <option value="@t">@t</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function openEdit(number, name, balanceType) {
+    document.getElementById('editNumber').value        = number;
+    document.getElementById('editNumberDisplay').value = number;
+    document.getElementById('editName').value          = name;
+    document.getElementById('editBalanceType').value   = balanceType;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+</script>
+}
