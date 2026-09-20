@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\Yevhen\\OneDrive\\C#\\realcorebanking\\RealCoreBanking\\RealCoreBanking.csproj": {}
+    "C:\\Users\\Yevhen\\OneDrive\\C#\\realcorebanking\\RealCoreBanking\\RealCoreBanking.csproj": {}
   },
   "projects": {
-    "c:\\Users\\Yevhen\\OneDrive\\C#\\realcorebanking\\RealCoreBanking\\RealCoreBanking.csproj": {
+    "C:\\Users\\Yevhen\\OneDrive\\C#\\realcorebanking\\RealCoreBanking\\RealCoreBanking.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\Yevhen\\OneDrive\\C#\\realcorebanking\\RealCoreBanking\\RealCoreBanking.csproj",
+        "projectUniqueName": "C:\\Users\\Yevhen\\OneDrive\\C#\\realcorebanking\\RealCoreBanking\\RealCoreBanking.csproj",
         "projectName": "RealCoreBanking",
-        "projectPath": "c:\\Users\\Yevhen\\OneDrive\\C#\\realcorebanking\\RealCoreBanking\\RealCoreBanking.csproj",
+        "projectPath": "C:\\Users\\Yevhen\\OneDrive\\C#\\realcorebanking\\RealCoreBanking\\RealCoreBanking.csproj",
         "packagesPath": "C:\\Users\\Yevhen\\.nuget\\packages\\",
-        "outputPath": "c:\\Users\\Yevhen\\OneDrive\\C#\\realcorebanking\\RealCoreBanking\\obj\\",
+        "outputPath": "C:\\Users\\Yevhen\\OneDrive\\C#\\realcorebanking\\RealCoreBanking\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Yevhen\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -72,7 +72,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.317/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.318/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

@@ -11,7 +11,8 @@ public class CreateModel : PageModel
     private readonly AccountStore _store;
 
     [BindProperty] public int  Code { get; set; }
-    [BindProperty] public string Name { get; set; } = "";
+    [BindProperty] public string Name     { get; set; } = "";
+    [BindProperty] public string Category { get; set; } = "Client";
     [BindProperty] public string AccrualBasis { get; set; } = "ACT/ACT";
     [BindProperty] public BalanceAccountType BalanceType { get; set; } = BalanceAccountType.Passive;
     [BindProperty] public decimal DefaultOverdraftLimit  { get; set; }
@@ -67,6 +68,7 @@ public class CreateModel : PageModel
         {
             Code             = Code,
             Name             = Name.Trim(),
+            Category         = Category,
             AccrualBasis     = AccrualBasis,
             BalanceType      = BalanceType,
             DefaultOverdraftLimit          = DefaultOverdraftLimit,
@@ -86,11 +88,10 @@ public class CreateModel : PageModel
                 .Where(r => r.Code > 0)
                 .Select(r => new RateEntry
                 {
-                    Code = r.Code,
-                    Name = r.Name ?? "",
-                    FinancialIndicatorCodes = (r.FiCodes ?? "001")
-                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                        .ToList()
+                    Code                 = r.Code,
+                    Name                 = r.Name ?? "",
+                    AccrualBaseAddress   = r.AccrualBaseAddress,
+                    AccrualTargetAddress = r.AccrualTargetAddress,
                 })
                 .ToList()
         };
@@ -111,9 +112,10 @@ public class ProductBalanceInput
 
 public class RateInputRow
 {
-    public int    Code    { get; set; }
-    public string Name    { get; set; } = "";
-    public string FiCodes { get; set; } = "001";
+    public int    Code                 { get; set; }
+    public string Name                 { get; set; } = "";
+    public long   AccrualBaseAddress   { get; set; }
+    public long   AccrualTargetAddress { get; set; }
 }
 
 public class DictEntryRow

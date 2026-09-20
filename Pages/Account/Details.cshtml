@@ -54,6 +54,7 @@
         border-top: 1px solid #dee2e6;
         font-size: .875rem;
     }
+    .sect-card { border:1px solid #dee2e6; border-radius:.5rem; overflow:hidden; margin-bottom:1rem; }
     .status-badge-open            { background:#198754; }
     .status-badge-close           { background:#6c757d; }
     .status-badge-sleeping        { background:#0d6efd; }
@@ -81,6 +82,11 @@
                 </a>
             </li>
             <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#overdraftModal">
+                    Overdraft limit
+                </a>
+            </li>
             <li>
                 <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#statusModal">
                     Change status
@@ -131,14 +137,14 @@
         <div class="col-md-6">
             <div class="info-label">Дата открытия счета</div>
             <div class="info-box d-flex justify-content-between">
-                <span>@(a.OpenedDate == default ? "—" : a.OpenedDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))</span>
+                <span>@(a.OpenedDate == default ? "—" : a.OpenedDate.ToLocalTime().ToString("dd/MM/yyyy"))</span>
                 <span class="text-muted" style="font-size:.9rem">⏷</span>
             </div>
         </div>
         <div class="col-md-6">
             <div class="info-label">Дата активации счета</div>
             <div class="info-box d-flex justify-content-between">
-                <span>@(a.ActivationDate.HasValue ? a.ActivationDate.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—")</span>
+                <span>@(a.ActivationDate.HasValue ? a.ActivationDate.Value.ToLocalTime().ToString("dd/MM/yyyy") : "—")</span>
                 <span class="text-muted" style="font-size:.9rem">⏷</span>
             </div>
         </div>
@@ -148,22 +154,26 @@
     <div class="mb-2">
         <div class="info-label">Дата последней клиентской транзакции</div>
         <div class="info-box d-flex justify-content-between">
-            <span>@(a.LastTransactionDate.HasValue ? a.LastTransactionDate.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—")</span>
+            <span>@(a.LastTransactionDate.HasValue ? a.LastTransactionDate.Value.ToLocalTime().ToString("dd/MM/yyyy") : "—")</span>
             <span class="text-muted" style="font-size:.9rem">⏷</span>
         </div>
     </div>
     <div class="row g-2 mb-2">
-        <div class="col-md-6">
-            <div class="info-label">Billing date</div>
+        <div class="col-md-4">
+            <div class="info-label">Биллинговая дата</div>
             <div class="info-box d-flex justify-content-between">
-                <span>@(a.BillingDate.HasValue ? a.BillingDate.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—")</span>
+                <span>@(a.BillingDate.HasValue ? a.BillingDate.Value.ToLocalTime().ToString("dd/MM/yyyy") : "—")</span>
                 <span class="text-muted" style="font-size:.9rem">⏷</span>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
+            <div class="info-label">Грейс период</div>
+            <div class="info-box">@(a.GracePeriodDays > 0 ? $"{a.GracePeriodDays} дн." : "—")</div>
+        </div>
+        <div class="col-md-4">
             <div class="info-label">Due date</div>
             <div class="info-box d-flex justify-content-between">
-                <span>@(a.DueDate.HasValue ? a.DueDate.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—")</span>
+                <span>@(a.DueDate.HasValue ? a.DueDate.Value.ToLocalTime().ToString("dd/MM/yyyy") : "—")</span>
                 <span class="text-muted" style="font-size:.9rem">⏷</span>
             </div>
         </div>
@@ -196,11 +206,13 @@
         var cur      = grp.Key;
         var items    = grp.ToList();
         var dp       = items.FirstOrDefault()?.DecimalPlaces ?? 2;
-        var totBal   = items.Where(b => b.Prefix == 1).Sum(b => b.Amount)
-                     - items.Where(b => b.Prefix == 2).Sum(b => b.Amount);
-        var otb      = items.Where(b => b.Prefix == 1 && b.FinancialIndicatorCode == "001").Sum(b => b.Amount)
-                     - items.Where(b => b.Prefix == 2).Sum(b => b.Amount)
-                     - items.Where(b => b.Prefix == 4).Sum(b => b.Amount);
+        var totBal   = items.Where(b => Model.GetEffectivePrefix(b) == 1).Sum(b => b.Amount)
+                     - items.Where(b => Model.GetEffectivePrefix(b) == 2).Sum(b => b.Amount);
+        var otb      = items.Where(b => Model.GetEffectivePrefix(b) == 1).Sum(b => b.Amount)
+                     - items.Where(b => Model.GetEffectivePrefix(b) == 2).Sum(b => b.Amount)
+                     - items.Where(b => Model.GetEffectivePrefix(b) == 4).Sum(b => b.Amount)
+                     - items.Where(b => Model.GetEffectivePrefix(b) == 5).Sum(b => b.Amount)
+                     + items.Where(b => Model.GetEffectivePrefix(b) == 6).Sum(b => b.Amount);
 
         <div class="currency-block">
             <div class="currency-block-header">
@@ -222,7 +234,8 @@
                     <tbody>
                         @foreach (var b in items)
                         {
-                            var intRate = Model.GetBalanceRate(b.FinancialIndicatorCode);
+                            var intRate  = Model.GetBalanceRate(b.Address);
+                            var effPfx   = Model.GetEffectivePrefix(b);
                             <tr>
                                 <td><span class="badge bg-primary">@b.Currency</span></td>
                                 <td class="mono fw-semibold">@b.Code</td>
@@ -235,6 +248,7 @@
                                 <td class="text-end mono @(string.IsNullOrEmpty(intRate) ? "text-muted" : "text-primary fw-semibold")">
                                     @(string.IsNullOrEmpty(intRate) ? "0" : intRate)
                                 </td>
+                                <td class="mono text-muted" title="effective prefix (debug)">p@(effPfx)</td>
                             </tr>
                         }
                     </tbody>
@@ -420,6 +434,127 @@
                         </button>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Журнал транзакций ───────────────────────────────────── -->
+@if (a.Transactions.Any())
+{
+    <div class="mb-4">
+        <div class="text-muted small text-uppercase fw-semibold mb-2" style="letter-spacing:.06em">Журнал транзакций</div>
+        <div class="sect-card">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0" style="font-size:.8rem">
+                    <thead class="table-light">
+                        <tr>
+                            <th>TxId</th>
+                            <th>Дата</th>
+                            <th>Тип</th>
+                            <th>Статус</th>
+                            <th>Адрес</th>
+                            <th class="text-end">Сумма</th>
+                            <th>Валюта</th>
+                            <th>Описание</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tx in a.Transactions.OrderByDescending(t => t.Date))
+                        {
+                            var txRowId = "tx-" + tx.TxId.Replace("-", "");
+                            <tr>
+                                <td class="mono text-muted" style="font-size:.75rem">@tx.TxId</td>
+                                <td class="mono">@tx.Date.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                <td><span class="badge bg-secondary">@tx.Type</span></td>
+                                <td>
+                                    <span class="badge @(tx.Status == "Posted" ? "bg-success" : "bg-danger")">@tx.Status</span>
+                                </td>
+                                <td class="mono">@tx.BalanceAddress.ToString("D10")</td>
+                                <td class="text-end mono @(tx.Description == "Deposit" ? "text-success" : "text-danger")">
+                                    @(tx.Description == "Deposit" ? "+" : "-")@tx.Amount.ToString("N2")
+                                </td>
+                                <td><span class="badge bg-primary">@tx.Currency</span></td>
+                                <td class="text-muted">@tx.Description</td>
+                                <td>
+                                    @if (tx.Postings.Any())
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                                style="font-size:.7rem"
+                                                type="button"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#@txRowId">
+                                            @tx.Postings.Count п.
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                            @if (tx.Postings.Any())
+                            {
+                                <tr class="collapse" id="@txRowId">
+                                    <td colspan="9" class="p-0">
+                                        <table class="table table-sm mb-0 border-0" style="font-size:.75rem; background:#f8f9fa">
+                                            <thead>
+                                                <tr class="text-muted">
+                                                    <th style="width:32px; padding-left:2rem">#</th>
+                                                    <th>PostingId</th>
+                                                    <th>Dr адрес</th>
+                                                    <th>Cr адрес</th>
+                                                    <th class="text-end">Сумма</th>
+                                                    <th>Описание</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @for (int pi = 0; pi < tx.Postings.Count; pi++)
+                                                {
+                                                    var p = tx.Postings[pi];
+                                                    <tr>
+                                                        <td style="padding-left:2rem" class="text-muted">@(pi + 1)</td>
+                                                        <td class="mono text-muted">@p.PostingId</td>
+                                                        <td class="mono">@(p.DrAddress == 0 ? "external" : p.DrAddress.ToString("D10"))</td>
+                                                        <td class="mono">@(p.CrAddress == 0 ? "external" : p.CrAddress.ToString("D10"))</td>
+                                                        <td class="text-end mono fw-semibold">@p.Amount.ToString("N2") @p.Currency</td>
+                                                        <td class="text-muted">@p.Description</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ── Modal: Overdraft limit ────────────────────────────── -->
+<div class="modal fade" id="overdraftModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">Лимит овердрафта</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="info-label">Текущий лимит</div>
+                    <div class="info-box mono fw-semibold">@a.OverdraftLimit.ToString("N2")</div>
+                </div>
+                <form method="post" asp-page-handler="SetOverdraftLimit">
+                    <input type="hidden" name="id" value="@a.AccountId" />
+                    <div class="mb-3">
+                        <label class="form-label form-label-sm fw-semibold">Новый лимит</label>
+                        <input type="number" name="limit" step="0.01" min="0"
+                               value="@a.OverdraftLimit.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                               class="form-control form-control-sm" />
+                        <div class="form-text">Введите 0 чтобы убрать лимит овердрафта</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Применить</button>
+                </form>
             </div>
         </div>
     </div>

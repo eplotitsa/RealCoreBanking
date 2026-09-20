@@ -6,18 +6,18 @@ public class CreateDebtContract : ISmartContract
 {
     private readonly Product _product;
 
-    public string Name => "СК: Создание долга";
+    public string Name    => "СК: Создание долга";
+    public bool   Success { get; private set; } = true;
 
     public CreateDebtContract(Product product) => _product = product;
 
-    public void Execute(CurrentAccount account)
+    public Task ExecuteAsync(CurrentAccount account, CancellationToken ct = default)
     {
         account.DebtArray ??= new DebtArray();
 
         var billingDate = account.BillingDate?.Date ?? DateTime.Today;
         var dueDate     = account.DueDate?.Date     ?? DateTime.Today;
 
-        // Order follows the sequence of DebtBalanceAddresses in the product
         int order = 0;
         foreach (var debtRef in _product.DebtBalanceAddresses)
         {
@@ -35,5 +35,7 @@ public class CreateDebtContract : ISmartContract
             });
             order++;
         }
+
+        return Task.CompletedTask;
     }
 }

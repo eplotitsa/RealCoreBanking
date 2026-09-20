@@ -1,0 +1,294 @@
+@page "{id}"
+@model RealCoreBanking.Pages.InternalAccounts.DetailsModel
+@{
+    ViewData["Title"] = $"Внутренний счёт {Model.Account?.AccountNumber}";
+    var a = Model.Account!;
+}
+
+@if (Model.Message != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show">
+        @Model.Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<!-- Header -->
+<div class="d-flex align-items-start justify-content-between mb-3">
+    <div>
+        <h4 class="mb-0 font-monospace">@a.AccountNumber</h4>
+        <small class="text-muted">@a.OwnerType: <strong>@a.OwnerId</strong> &nbsp;|&nbsp; Книга: @a.BookType</small>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        @{
+            var statusClass = a.StatusValue switch
+            {
+                "open"                 => "bg-success",
+                "close"                => "bg-secondary",
+                "waiting for approval" => "bg-warning text-dark",
+                _                      => "bg-info",
+            };
+        }
+        <span class="badge fs-6 @statusClass">@a.StatusValue</span>
+
+        <!-- Action menu -->
+        <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                Действия
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><h6 class="dropdown-header">Операции</h6></li>
+                <li><a class="dropdown-item" href="#" onclick="showDeposit()">&#43; Пополнить</a></li>
+                <li><a class="dropdown-item" href="#" onclick="showWithdraw()">&#8722; Списать</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header">Управление</h6></li>
+                <li>
+                    <form method="post" asp-page-handler="ToggleCredit">
+                        <input type="hidden" name="id" value="@a.AccountId" />
+                        <button class="dropdown-item">
+                            @(a.CreditBlocked ? "Разблокировать кредит" : "Заблокировать кредит")
+                        </button>
+                    </form>
+                </li>
+                <li>
+                    <form method="post" asp-page-handler="ToggleDebit">
+                        <input type="hidden" name="id" value="@a.AccountId" />
+                        <button class="dropdown-item">
+                            @(a.DebitBlocked ? "Разблокировать дебит" : "Заблокировать дебит")
+                        </button>
+                    </form>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <form method="post" asp-page-handler="ChangeStatus">
+                        <input type="hidden" name="id" value="@a.AccountId" />
+                        <input type="hidden" name="newStatus" value="open" />
+                        <button class="dropdown-item">Статус: open</button>
+                    </form>
+                </li>
+                <li>
+                    <form method="post" asp-page-handler="ChangeStatus">
+                        <input type="hidden" name="id" value="@a.AccountId" />
+                        <input type="hidden" name="newStatus" value="waiting for approval" />
+                        <button class="dropdown-item">Статус: waiting for approval</button>
+                    </form>
+                </li>
+                <li>
+                    <form method="post" asp-page-handler="Close"
+                          onsubmit="return confirm('Закрыть счёт?')">
+                        <input type="hidden" name="id" value="@a.AccountId" />
+                        <button class="dropdown-item text-danger">Закрыть счёт</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+        <a class="btn btn-sm btn-outline-secondary" asp-page="/InternalAccounts/Index">← Список</a>
+    </div>
+</div>
+
+<!-- Info row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body py-2">
+                <div class="text-muted small">Открыт</div>
+                <div class="fw-semibold">@a.OpenedDate.ToLocalTime().ToString("dd/MM/yyyy")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body py-2">
+                <div class="text-muted small">Активирован</div>
+                <div class="fw-semibold">@(a.ActivationDate?.ToLocalTime().ToString("dd/MM/yyyy") ?? "—")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body py-2">
+                <div class="text-muted small">Посл. транзакция</div>
+                <div class="fw-semibold">@(a.LastTransactionDate?.ToLocalTime().ToString("dd/MM/yyyy") ?? "—")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body py-2">
+                <div class="text-muted small">Кредит / Дебит</div>
+                <div class="fw-semibold">
+                    @(a.CreditBlocked ? "🔒" : "✅") / @(a.DebitBlocked ? "🔒" : "✅")
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Balances table -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Балансы</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Адрес</th>
+                    <th>Название</th>
+                    <th>Валюта</th>
+                    <th>Признак</th>
+                    <th>Тип</th>
+                    <th class="text-end">Сумма</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var b in a.Balances.Items)
+                {
+                    var pfx = Model.GetEffectivePrefix(b);
+                    <tr>
+                        <td class="mono">@b.Address.ToString("D10")</td>
+                        <td>@b.Name</td>
+                        <td>@b.Currency</td>
+                        <td>@b.FinancialIndicatorCode</td>
+                        <td><span class="badge bg-light text-dark border">p@(pfx)</span></td>
+                        <td class="text-end mono">@b.Amount.ToString("N2")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Transaction log -->
+@if (a.Transactions.Any())
+{
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold">Журнал транзакций</div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>TxId</th>
+                        <th>Дата</th>
+                        <th>Тип</th>
+                        <th>Описание</th>
+                        <th class="text-end">Сумма</th>
+                        <th>Валюта</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var tx in a.Transactions.OrderByDescending(t => t.Date))
+                    {
+                        <tr class="table-row-clickable" style="cursor:pointer"
+                            onclick="this.nextElementSibling.classList.toggle('d-none')">
+                            <td class="mono small">@tx.TxId</td>
+                            <td>@tx.Date.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                            <td>@tx.Type</td>
+                            <td>@tx.Description</td>
+                            <td class="text-end mono">@tx.Amount.ToString("N2")</td>
+                            <td>@tx.Currency</td>
+                        </tr>
+                        @if (tx.Postings.Any())
+                        {
+                            <tr class="d-none bg-light">
+                                <td colspan="6" class="ps-4">
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <thead>
+                                            <tr class="text-muted small">
+                                                <th>PostingId</th><th>Dr</th><th>Cr</th>
+                                                <th class="text-end">Сумма</th><th>Описание</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var p in tx.Postings)
+                                            {
+                                                <tr>
+                                                    <td class="mono small">@p.PostingId</td>
+                                                    <td class="mono">@(p.DrAddress == 0 ? "EXTERNAL" : p.DrAddress.ToString("D10"))</td>
+                                                    <td class="mono">@(p.CrAddress == 0 ? "EXTERNAL" : p.CrAddress.ToString("D10"))</td>
+                                                    <td class="text-end mono">@p.Amount.ToString("N2")</td>
+                                                    <td class="small text-muted">@p.Description</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<!-- Deposit modal -->
+<div class="modal fade" id="depositModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Пополнить баланс</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form method="post" asp-page-handler="Deposit">
+                <div class="modal-body">
+                    <input type="hidden" name="id" value="@a.AccountId" />
+                    <div class="mb-2">
+                        <label class="form-label small">Баланс</label>
+                        <select class="form-select form-select-sm" name="balanceAddress">
+                            @foreach (var b in a.Balances.Items)
+                            {
+                                <option value="@b.Address">@b.Address.ToString("D10") — @b.Name (@b.Currency)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Сумма</label>
+                        <input type="number" step="0.01" min="0.01" class="form-control form-control-sm"
+                               name="amount" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-sm btn-success">Зачислить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Withdraw modal -->
+<div class="modal fade" id="withdrawModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Списать с баланса</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form method="post" asp-page-handler="Withdraw">
+                <div class="modal-body">
+                    <input type="hidden" name="id" value="@a.AccountId" />
+                    <div class="mb-2">
+                        <label class="form-label small">Баланс</label>
+                        <select class="form-select form-select-sm" name="balanceAddress">
+                            @foreach (var b in a.Balances.Items)
+                            {
+                                <option value="@b.Address">@b.Address.ToString("D10") — @b.Name (@b.Currency)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Сумма</label>
+                        <input type="number" step="0.01" min="0.01" class="form-control form-control-sm"
+                               name="amount" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-sm btn-danger">Списать</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function showDeposit()  { new bootstrap.Modal(document.getElementById('depositModal')).show(); }
+        function showWithdraw() { new bootstrap.Modal(document.getElementById('withdrawModal')).show(); }
+    </script>
+}

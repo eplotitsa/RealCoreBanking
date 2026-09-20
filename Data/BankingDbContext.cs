@@ -21,6 +21,10 @@ public class BankingDbContext : DbContext
     public DbSet<FinancialIndicatorEntity>  FinancialIndicators   { get; set; }
     public DbSet<BalanceTypeEntity>         BalanceTypes          { get; set; }
     public DbSet<GlAccountEntity>           GlAccounts            { get; set; }
+    public DbSet<CurrentAccountEntity>      CurrentAccounts       { get; set; }
+    public DbSet<InternalAccountEntity>     InternalAccounts      { get; set; }
+    public DbSet<TransactionEntity>         Transactions          { get; set; }
+    public DbSet<PostingEntity>             Postings              { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -38,5 +42,20 @@ public class BankingDbContext : DbContext
         // InterestRates: optional FK to RateIndexes (no cascade — index may be deleted independently)
         mb.Entity<InterestRateEntity>()
           .HasIndex(r => r.RateIndexCode);
+
+        // Transactions → Postings (1:many, cascade delete)
+        mb.Entity<PostingEntity>()
+          .HasOne(p => p.Transaction)
+          .WithMany(t => t.Postings)
+          .HasForeignKey(p => p.TxId)
+          .OnDelete(DeleteBehavior.Cascade);
+
+        // Fast lookups by account and by date
+        mb.Entity<TransactionEntity>()
+          .HasIndex(t => t.AccountId);
+        mb.Entity<TransactionEntity>()
+          .HasIndex(t => new { t.AccountId, t.Date });
+        mb.Entity<PostingEntity>()
+          .HasIndex(p => p.TxId);
     }
 }

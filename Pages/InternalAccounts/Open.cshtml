@@ -1,0 +1,120 @@
+@page
+@model RealCoreBanking.Pages.InternalAccounts.OpenModel
+@{
+    ViewData["Title"] = "Открыть внутренний счёт";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Открыть внутренний счёт</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.Error != null)
+                {
+                    <div class="alert alert-danger">@Model.Error</div>
+                }
+
+                <form method="post" id="frmOpen">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Номер счёта</label>
+                            <input class="form-control font-monospace" asp-for="AccountNumber"
+                                   placeholder="000000001" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Тип книги</label>
+                            <input class="form-control" asp-for="BookType" />
+                        </div>
+                    </div>
+
+                    <hr />
+                    <h6 class="text-muted mb-3">Владелец счёта</h6>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-5">
+                            <label class="form-label">Тип владельца</label>
+                            <select class="form-select" asp-for="OwnerType">
+                                @foreach (var t in RealCoreBanking.Pages.InternalAccounts.OpenModel.OwnerTypes)
+                                {
+                                    <option value="@t">@t</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label">Идентификатор владельца</label>
+                            <input class="form-control" asp-for="OwnerId"
+                                   placeholder="HEAD-OPS, BRANCH-001, FX-PROC" required />
+                            <div class="form-text">Код филиала, название департамента или имя процесса</div>
+                        </div>
+                    </div>
+
+                    <hr />
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="text-muted mb-0">Балансы</h6>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addBalanceRow()">+ Добавить баланс</button>
+                    </div>
+
+                    <div id="balanceRows">
+                        <!-- rows injected by JS -->
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Открыть</button>
+                        <a class="btn btn-outline-secondary" asp-page="/InternalAccounts/Index">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let rowIdx = 0;
+
+function addBalanceRow(addr, name, fi, gl, cur) {
+    const i = rowIdx++;
+    const html = `
+    <div class="border rounded p-2 mb-2 balance-row" id="brow${i}">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <small class="text-muted fw-semibold">Баланс ${i + 1}</small>
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removeRow(${i})">×</button>
+        </div>
+        <div class="row g-2">
+            <div class="col-sm-4">
+                <input name="Balances[${i}].Address" class="form-control form-control-sm font-monospace"
+                       placeholder="Адрес (10 цифр)" value="${addr||'0100000001'}" maxlength="10"
+                       pattern="\\d{10}" title="Ровно 10 цифр" required />
+            </div>
+            <div class="col-sm-4">
+                <input name="Balances[${i}].Name" class="form-control form-control-sm"
+                       placeholder="Назначение (макс. 128 симв.)" value="${name||''}" maxlength="128" required />
+            </div>
+            <div class="col-sm-2">
+                <input name="Balances[${i}].Currency" class="form-control form-control-sm"
+                       placeholder="Валюта" value="${cur||'USD'}" maxlength="3" style="text-transform:uppercase" required />
+            </div>
+            <div class="col-sm-2">
+                <input name="Balances[${i}].FICode" class="form-control form-control-sm"
+                       placeholder="FI-код" value="${fi||'001'}" />
+            </div>
+            <div class="col-sm-4">
+                <input name="Balances[${i}].GlCode" class="form-control form-control-sm"
+                       placeholder="GL-код" value="${gl||''}" />
+            </div>
+            <input type="hidden" name="Balances[${i}].Rounding" value="AwayFromZero" />
+        </div>
+    </div>`;
+    document.getElementById('balanceRows').insertAdjacentHTML('beforeend', html);
+}
+
+function removeRow(i) {
+    document.getElementById('brow' + i)?.remove();
+}
+
+// Start with one empty row
+addBalanceRow();
+</script>
+}

@@ -1,0 +1,379 @@
+@page
+@model RealCoreBanking.Pages.Testing.IndexModel
+@using RealCoreBanking.Core.Models
+@{
+    ViewData["Title"] = "Тест экран";
+    var session = Model.Session;
+    var account = Model.Account;
+    var txs     = session.Transactions;
+}
+
+@{
+    // Restore run log from TempData after redirect
+    List<string> runLog = new();
+    if (TempData.TryGetValue("RunLog", out var rawLog) && rawLog is string logJson)
+        runLog = System.Text.Json.JsonSerializer.Deserialize<List<string>>(logJson) ?? new();
+}
+
+<style>
+    .info-box   { border:1px solid #dee2e6; border-radius:.375rem; padding:.375rem .75rem;
+                  min-height:38px; display:flex; align-items:center; background:#fff; }
+    .info-label { font-size:.75rem; color:#6c757d; margin-bottom:.2rem; }
+    .sect-card  { border:1px solid #dee2e6; border-radius:.5rem; overflow:hidden; margin-bottom:1.25rem; }
+    .sect-hdr   { background:#f8f9fa; padding:.5rem .75rem; font-weight:600; border-bottom:1px solid #dee2e6;
+                  display:flex; justify-content:space-between; align-items:center; }
+    .log-box    { background:#1e1e1e; color:#d4d4d4; font-family:'Courier New',monospace;
+                  font-size:.8rem; max-height:380px; overflow-y:auto;
+                  padding:.75rem 1rem; border-radius:.375rem; }
+    .log-box .day-hdr { color:#569cd6; font-weight:600; }
+    .log-box .tx      { color:#9cdcfe; }
+    .log-box .int     { color:#4ec9b0; }
+    .log-box .done    { color:#ce9178; font-weight:600; }
+    .log-box .err     { color:#f48771; }
+</style>
+
+<h5 class="fw-bold mb-3">Экран управления счетом для тестов</h5>
+
+<!-- ── Account selector ────────────────────────────────────────────────── -->
+<form method="post" asp-page-handler="SelectAccount" class="mb-4" style="max-width:400px">
+    <div class="info-label">Номер счета</div>
+    <div class="d-flex gap-2">
+        <select name="accountId" class="form-select" onchange="this.form.submit()">
+            <option value="">— выберите счет —</option>
+            @foreach (var a in Model.AllAccounts.OrderBy(x => x.AccountNumber))
+            {
+                var sel = a.AccountId == session.AccountId;
+                if (sel) { <option value="@a.AccountId" selected>@a.AccountNumber  (@a.BookType — продукт @a.ProductCode)</option> }
+                else      { <option value="@a.AccountId">@a.AccountNumber  (@a.BookType — продукт @a.ProductCode)</option> }
+            }
+        </select>
+    </div>
+</form>
+
+@if (account == null)
+{
+    <div class="text-muted">Выберите счет для начала тестирования.</div>
+}
+else
+{
+    <!-- ── Run form (contains activation date + new banking day + Run button) ── -->
+    <form method="post" asp-page-handler="Run" style="max-width:760px" id="runForm">
+
+        <!-- Row 1: Текущий банковский день | Дата активации счета -->
+        <div class="row g-2 mb-3">
+            <div class="col-md-6">
+                <div class="info-label">Текущий банковский день</div>
+                <div class="info-box fw-semibold mono">@Model.BankingDate.ToString("dd/MM/yyyy")</div>
+            </div>
+            <div class="col-md-6">
+                <div class="info-label">Дата активации счета</div>
+                <input type="date" name="activationDate" class="form-control fp-date"
+                       value="@(account.ActivationDate?.ToString("yyyy-MM-dd") ?? "")" />
+            </div>
+        </div>
+
+        <!-- Row 2: Новый банковский день -->
+        <div class="row g-2 mb-4">
+            <div class="col-md-6">
+                <div class="info-label">Новый банковский день</div>
+                <div class="input-group">
+                    <input type="date" name="newBankingDay" id="newBankingDay" class="form-control fp-date"
+                           value="@(session.NewBankingDay?.ToString("yyyy-MM-dd") ?? Model.BankingDate.AddDays(1).ToString("yyyy-MM-dd"))"
+                           required />
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Transactions section ─────────────────────────────────────────── -->
+        <div class="sect-card mb-4">
+            <div class="sect-hdr">
+                <span>Набор тестовых транзакций</span>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary"
+                            onclick="openAddTx()">Add</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            id="btnEditTx" disabled onclick="openEditTx()">Edit</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                            id="btnDelTx" disabled onclick="submitDeleteTx()">Delete</button>
+                </div>
+            </div>
+
+            @if (!txs.Any())
+            {
+                <div class="text-muted small text-center py-3">Транзакций нет</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0" style="font-size:.85rem">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:32px"></th>
+                                <th>#</th>
+                                <th>Дата</th>
+                                <th>Адрес на счету</th>
+                                <th class="text-end">Сумма</th>
+                                <th>Валюта</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < txs.Count; i++)
+                            {
+                                var tx = txs[i];
+                                <tr data-idx="@i"
+                                    data-date="@tx.Date.ToString("yyyy-MM-dd")"
+                                    data-addr="@tx.BalanceAddress"
+                                    data-amount="@tx.Amount"
+                                    data-currency="@tx.Currency"
+                                    onclick="selectTxRow(this)" style="cursor:pointer">
+                                    <td>
+                                        <input type="checkbox" class="tx-chk form-check-input"
+                                               onclick="event.stopPropagation()" onchange="onTxChk(this)"
+                                               data-idx="@i" />
+                                    </td>
+                                    <td class="text-muted">@(i + 1)</td>
+                                    <td class="mono">@tx.Date.ToString("dd/MM/yyyy")</td>
+                                    <td class="mono">@tx.BalanceAddress.ToString("D10")</td>
+                                    <td class="text-end @(tx.Amount < 0 ? "text-danger" : "text-success")">
+                                        @tx.Amount.ToString("N2")
+                                    </td>
+                                    <td><span class="badge bg-primary">@tx.Currency</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <button type="submit" class="btn btn-success px-4">&#9654; Запустить</button>
+    </form>
+
+    <!-- ── Hidden delete transaction form ──────────────────────────────────── -->
+    <form method="post" asp-page-handler="DeleteTransaction" id="frmDeleteTx" class="d-none">
+        <input type="hidden" name="txIndex" id="delTxIdx" />
+    </form>
+
+    <!-- ── Run log ──────────────────────────────────────────────────────────── -->
+    @if (runLog.Any())
+    {
+        <div class="mt-4" style="max-width:760px">
+            <div class="info-label mb-1">Результат выполнения</div>
+            <div class="log-box" id="logBox">
+                @foreach (var line in runLog)
+                {
+                    if (line.StartsWith("──"))
+                    { <div class="day-hdr">@line</div> }
+                    else if (line.StartsWith("  [TX]"))
+                    { <div class="tx">@line</div> }
+                    else if (line.StartsWith("  [INT]"))
+                    { <div class="int">@line</div> }
+                    else if (line.StartsWith("══"))
+                    { <div class="done">@line</div> }
+                    else if (line.StartsWith("  Ошибка") || line.StartsWith("Ошибка"))
+                    { <div class="err">@line</div> }
+                    else
+                    { <div>@line</div> }
+                }
+            </div>
+        </div>
+    }
+}
+
+<!-- ── Add Transaction modal ─────────────────────────────────────────────── -->
+<div class="modal fade" id="addTxModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="AddTransaction">
+                <div class="modal-header">
+                    <h6 class="modal-title">Добавить транзакцию</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label info-label">Дата</label>
+                        <input type="date" name="txDate" id="addTxDate" class="form-control fp-date"
+                               value="@Model.BankingDate.AddDays(1).ToString("yyyy-MM-dd")" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label info-label">Адрес баланса</label>
+                        @if (account?.Balances.Items.Any() == true)
+                        {
+                            <select name="balanceAddress" class="form-select" required>
+                                <option value="">— выберите —</option>
+                                @foreach (var b in account.Balances.Items.OrderBy(b => b.Address))
+                                {
+                                    <option value="@b.Address">@b.Address.ToString("D10") — @b.Name (@b.Currency)</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="number" name="balanceAddress" class="form-control"
+                                   placeholder="0000000001" min="0" required />
+                        }
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label info-label">Сумма (отрицательное = списание)</label>
+                        <input type="number" name="amount" step="0.01" class="form-control"
+                               placeholder="0.00" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label info-label">Валюта</label>
+                        @{
+                            var currencies = account?.Balances.Items.Select(b => b.Currency).Distinct().OrderBy(c => c).ToList() ?? new();
+                        }
+                        @if (currencies.Any())
+                        {
+                            <select name="currency" class="form-select" required>
+                                @foreach (var c in currencies)
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="text" name="currency" class="form-control" maxlength="3"
+                                   placeholder="USD" required />
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ── Edit Transaction modal ────────────────────────────────────────────── -->
+<div class="modal fade" id="editTxModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="EditTransaction">
+                <input type="hidden" name="txIndex" id="editTxIdx" />
+                <div class="modal-header">
+                    <h6 class="modal-title">Редактировать транзакцию</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label info-label">Дата</label>
+                        <input type="date" name="txDate" id="editTxDate" class="form-control fp-date" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label info-label">Адрес баланса</label>
+                        @if (account?.Balances.Items.Any() == true)
+                        {
+                            <select name="balanceAddress" id="editTxAddr" class="form-select" required>
+                                <option value="">— выберите —</option>
+                                @foreach (var b in account.Balances.Items.OrderBy(b => b.Address))
+                                {
+                                    <option value="@b.Address">@b.Address.ToString("D10") — @b.Name (@b.Currency)</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="number" name="balanceAddress" id="editTxAddr"
+                                   class="form-control" required />
+                        }
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label info-label">Сумма</label>
+                        <input type="number" name="amount" id="editTxAmount" step="0.01" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label info-label">Валюта</label>
+                        @{
+                            var editCurrencies = account?.Balances.Items.Select(b => b.Currency).Distinct().OrderBy(c => c).ToList() ?? new();
+                        }
+                        @if (editCurrencies.Any())
+                        {
+                            <select name="currency" id="editTxCurrency" class="form-select" required>
+                                @foreach (var c in editCurrencies)
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="text" name="currency" id="editTxCurrency"
+                                   class="form-control" maxlength="3" required />
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    flatpickr('.fp-date', {
+        dateFormat:  'Y-m-d',   // submitted value
+        altInput:    true,       // show a separate visible input
+        altFormat:   'd/m/Y',   // what the user sees
+        allowInput:  true,
+    });
+});
+</script>
+<script>
+let selTxIdx = null;
+
+function selectTxRow(row) {
+    document.querySelectorAll('.tx-chk').forEach(c => c.checked = false);
+    const chk = row.querySelector('.tx-chk');
+    chk.checked = true;
+    onTxChk(chk);
+}
+
+function onTxChk(cb) {
+    document.querySelectorAll('.tx-chk').forEach(c => { if (c !== cb) c.checked = false; });
+    selTxIdx = cb.checked ? parseInt(cb.dataset.idx) : null;
+    document.getElementById('btnEditTx').disabled = selTxIdx === null;
+    document.getElementById('btnDelTx').disabled  = selTxIdx === null;
+}
+
+function openAddTx() {
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('addTxModal')).show();
+}
+
+function openEditTx() {
+    if (selTxIdx === null) return;
+    const row = document.querySelector(`tr[data-idx="${selTxIdx}"]`);
+    if (!row) return;
+    document.getElementById('editTxIdx').value    = selTxIdx;
+    document.getElementById('editTxDate').value = row.dataset.date;
+    document.getElementById('editTxAmount').value = row.dataset.amount;
+    const addrEl = document.getElementById('editTxAddr');
+    if (addrEl) addrEl.value = row.dataset.addr;
+    const curEl = document.getElementById('editTxCurrency');
+    if (curEl) curEl.value = row.dataset.currency;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('editTxModal')).show();
+}
+
+function submitDeleteTx() {
+    if (selTxIdx === null) return;
+    if (!confirm('Удалить транзакцию #' + (selTxIdx + 1) + '?')) return;
+    document.getElementById('delTxIdx').value = selTxIdx;
+    document.getElementById('frmDeleteTx').submit();
+}
+
+// Scroll log to bottom on load
+window.addEventListener('DOMContentLoaded', () => {
+    const lb = document.getElementById('logBox');
+    if (lb) lb.scrollTop = lb.scrollHeight;
+});
+</script>
+}

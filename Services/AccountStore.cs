@@ -7,10 +7,11 @@ namespace RealCoreBanking.Services;
 
 public class AccountStore
 {
-    private readonly Dictionary<string, CurrentAccount> _accounts   = new();
-    private readonly Dictionary<int, InterestRate>      _rates      = new();
-    private readonly Dictionary<string, RateIndex>      _indexes    = new();
-    private readonly Dictionary<string, Currency>       _currencies = new();
+    private readonly Dictionary<string, CurrentAccount>  _accounts         = new();
+    private readonly Dictionary<string, InternalAccount> _internalAccounts = new();
+    private readonly Dictionary<int, InterestRate>       _rates      = new();
+    private readonly Dictionary<string, RateIndex>       _indexes    = new();
+    private readonly Dictionary<string, Currency>        _currencies = new();
     private readonly List<string> _log = new();
 
     private readonly IInterestRateRepository?       _rateRepo;
@@ -20,7 +21,9 @@ public class AccountStore
     private readonly IBalanceDefinitionRepository?  _balDefRepo;
     private readonly IFinancialIndicatorRepository? _fiRepo;
     private readonly IBalanceTypeRepository?        _btRepo;
-    private readonly IGlAccountRepository?          _glRepo;
+    private readonly IGlAccountRepository?           _glRepo;
+    private readonly ICurrentAccountRepository?     _accountRepo;
+    private readonly IInternalAccountRepository?    _internalRepo;
 
     public Enterprise Enterprise { get; } = new Enterprise();
 
@@ -32,7 +35,9 @@ public class AccountStore
         IBalanceDefinitionRepository?  balDefRepo    = null,
         IFinancialIndicatorRepository? fiRepo        = null,
         IBalanceTypeRepository?        btRepo        = null,
-        IGlAccountRepository?          glRepo        = null)
+        IGlAccountRepository?          glRepo        = null,
+        ICurrentAccountRepository?     accountRepo   = null,
+        IInternalAccountRepository?    internalRepo  = null)
     {
         _rateRepo     = rateRepo;
         _indexRepo    = indexRepo;
@@ -42,10 +47,14 @@ public class AccountStore
         _fiRepo       = fiRepo;
         _btRepo       = btRepo;
         _glRepo       = glRepo;
+        _accountRepo  = accountRepo;
+        _internalRepo = internalRepo;
 
         // Restore persisted data from DB on startup
-        if (_rateRepo  != null) foreach (var r in _rateRepo.GetAll())  _rates[r.Code]   = r;
-        if (_indexRepo != null) foreach (var i in _indexRepo.GetAll()) _indexes[i.Code] = i;
+        if (_rateRepo      != null) foreach (var r in _rateRepo.GetAll())      _rates[r.Code]                    = r;
+        if (_indexRepo     != null) foreach (var i in _indexRepo.GetAll())     _indexes[i.Code]                  = i;
+        if (_accountRepo   != null) foreach (var a in _accountRepo.GetAll())   _accounts[a.AccountId]            = a;
+        if (_internalRepo  != null) foreach (var a in _internalRepo.GetAll())  _internalAccounts[a.AccountId]    = a;
 
         // Load currencies — seed from SeedList if DB is empty
         if (_currencyRepo != null)
@@ -136,8 +145,28 @@ public class AccountStore
     // ─── Accounts ────────────────────────────────────────────────────────────
 
     public IReadOnlyCollection<CurrentAccount> All => _accounts.Values;
-    public void Add(CurrentAccount account) => _accounts[account.AccountId] = account;
-    public CurrentAccount? Get(string id)   => _accounts.TryGetValue(id, out var a) ? a : null;
+
+    public void Add(CurrentAccount account)
+    {
+        _accounts[account.AccountId] = account;
+        _accountRepo?.Save(account);
+    }
+
+    public void SaveAccount(CurrentAccount account)
+    {
+        _accounts[account.AccountId] = account;
+        _accountRepo?.Save(account);
+    }
+
+    public void DeleteAccount(string accountId)
+    {
+        _accounts.Remove(accountId);
+        _accountRepo?.Delete(accountId);
+    }
+
+    public CurrentAccount? Get(string id) => _accounts.TryGetValue(id, out var a) ? a : null;
+
+    public TestSession TestSession { get; } = new();
 
     // ─── Products (DB only — no in-memory cache) ─────────────────────────────
 
@@ -286,6 +315,31 @@ public class AccountStore
     {
         BalanceTypeDefinition.Unregister(code);
         _btRepo?.Delete(code);
+    }
+
+    // ─── Internal Accounts ───────────────────────────────────────────────────
+
+    public IReadOnlyCollection<InternalAccount> AllInternalAccounts => _internalAccounts.Values;
+
+    public void AddInternalAccount(InternalAccount account)
+    {
+        _internalAccounts[account.AccountId] = account;
+        _internalRepo?.Save(account);
+    }
+
+    public void SaveInternalAccount(InternalAccount account)
+    {
+        _internalAccounts[account.AccountId] = account;
+        _internalRepo?.Save(account);
+    }
+
+    public InternalAccount? GetInternalAccount(string id) =>
+        _internalAccounts.TryGetValue(id, out var a) ? a : null;
+
+    public void DeleteInternalAccount(string accountId)
+    {
+        _internalAccounts.Remove(accountId);
+        _internalRepo?.Delete(accountId);
     }
 
     // ─── Event log ───────────────────────────────────────────────────────────

@@ -38,6 +38,13 @@
                     <input asp-for="Name" class="form-control" required placeholder="Current Account PHP" />
                 </div>
                 <div class="col-md-2">
+                    <label class="form-label form-label-sm">Категория продукта</label>
+                    <select asp-for="Category" class="form-select" id="categorySelect" onchange="onCategoryChange()">
+                        <option value="Client">Клиентский счёт</option>
+                        <option value="Internal">Внутренний счёт</option>
+                    </select>
+                </div>
+                <div class="col-md-2 client-only">
                     <label class="form-label form-label-sm">База начисления</label>
                     <select asp-for="AccrualBasis" class="form-select">
                         @foreach (var b in CreateModel.AccrualBases)
@@ -55,12 +62,12 @@
                         }
                     </select>
                 </div>
+            </div>
+            <div class="row g-3 mt-1 client-only">
                 <div class="col-md-2">
                     <label class="form-label form-label-sm">Лимит овердрафта</label>
                     <input asp-for="DefaultOverdraftLimit" type="number" step="0.01" class="form-control mono" placeholder="0" />
                 </div>
-            </div>
-            <div class="row g-3 mt-1">
                 <div class="col-12">
                     <label class="form-label form-label-sm fw-semibold">Поддерживаемые функции</label>
                     <div class="d-flex gap-4 flex-wrap">
@@ -133,6 +140,7 @@
     </div>
 
     <!-- ── 4. Адреса балансов долга ──────────────────────────────────────── -->
+    <div class="client-only">
     <div class="card shadow-sm mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
             <span class="fw-semibold">Адреса балансов долга</span>
@@ -165,7 +173,8 @@
                     <tr>
                         <th>Код ставки</th>
                         <th>Название</th>
-                        <th>Фин. признаки (через запятую)</th>
+                        <th>Адрес для начисления</th>
+                        <th>Адрес начисления</th>
                         <th style="width:50px"></th>
                     </tr>
                 </thead>
@@ -195,6 +204,7 @@
             <p class="text-muted small px-3 pb-2 mb-0" id="dictEmpty">Нет записей.</p>
         </div>
     </div>
+    </div><!-- /client-only: sections 4-6 -->
 
     <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary px-4">Сохранить продукт</button>
@@ -343,8 +353,10 @@ function addRate() {
                        placeholder="2021" style="width:100px" /></td>
             <td><input name="Rates[${i}].Name" class="form-control form-control-sm"
                        placeholder="current account rate php" /></td>
-            <td><input name="Rates[${i}].FiCodes" class="form-control form-control-sm mono"
-                       value="001" placeholder="001,002" style="width:140px" /></td>
+            <td><input name="Rates[${i}].AccrualBaseAddress" type="number" class="form-control form-control-sm mono"
+                       placeholder="1000000001" style="width:150px" /></td>
+            <td><input name="Rates[${i}].AccrualTargetAddress" type="number" class="form-control form-control-sm mono"
+                       placeholder="3000000001" style="width:150px" /></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger"
                         onclick="del('rate${i}','rateBody','rateEmpty')">✕</button></td>
         </tr>`);
@@ -371,6 +383,15 @@ function del(rowId, bodyId, emptyId) {
     if (!document.getElementById(bodyId).children.length)
         document.getElementById(emptyId).style.display = '';
 }
+
+// ── Категория продукта ────────────────────────────────────────────────────────
+function onCategoryChange() {
+    const isInternal = document.getElementById('categorySelect').value === 'Internal';
+    document.querySelectorAll('.client-only').forEach(el => {
+        el.style.display = isInternal ? 'none' : '';
+    });
+}
+document.addEventListener('DOMContentLoaded', onCategoryChange);
 
 function renumberRows() {
     ['gl', 'debt', 'rate', 'bal', 'dict'].forEach(pref => {

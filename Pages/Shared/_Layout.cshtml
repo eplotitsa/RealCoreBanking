@@ -47,9 +47,13 @@
                         <li><h6 class="dropdown-header">Балансы</h6></li>
                         <li><a class="dropdown-item" asp-page="/Balances/Index">Определения балансов</a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><h6 class="dropdown-header">Счета</h6></li>
+                        <li><h6 class="dropdown-header">Клиентские счета</h6></li>
                         <li><a class="dropdown-item" asp-page="/Account/Open">&#43; Открыть счет</a></li>
                         <li><a class="dropdown-item" asp-page="/Index">Список счетов</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header">Внутренние счета</h6></li>
+                        <li><a class="dropdown-item" asp-page="/InternalAccounts/Open">&#43; Открыть внутренний</a></li>
+                        <li><a class="dropdown-item" asp-page="/InternalAccounts/Index">Список внутренних</a></li>
                     </ul>
                 </li>
 
@@ -83,6 +87,11 @@
                         <li><a class="dropdown-item" asp-page="/FinancialIndicators/Index">Финансовые признаки</a></li>
                         <li><a class="dropdown-item" asp-page="/GlAccounts/Index">План счетов</a></li>
                     </ul>
+                </li>
+
+                <!-- ═══ Тестирование ═══ -->
+                <li class="nav-item">
+                    <a class="nav-link" asp-page="/Testing/Index">&#9654; Тест экран</a>
                 </li>
 
                 <!-- ═══ Система ═══ -->

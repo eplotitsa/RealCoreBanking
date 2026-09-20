@@ -35,8 +35,8 @@ public class CreateIndexModel : PageModel
     {
         if (string.IsNullOrWhiteSpace(Code)) ModelState.AddModelError("Code", "Введите код индекса");
         if (string.IsNullOrWhiteSpace(Name)) ModelState.AddModelError("Name", "Введите название");
-        if (_store.GetRateIndex(Code.Trim()) != null)
-            ModelState.AddModelError("Code", $"Индекс {Code} уже существует");
+        if (_store.GetRateIndex(Code.Trim().ToUpper()) != null)
+            ModelState.AddModelError("Code", $"Индекс {Code.Trim().ToUpper()} уже существует");
         if (!ModelState.IsValid) return Page();
 
         if (!TimeOnly.TryParse(PublicationTimeStr, out var pubTime))

@@ -30,14 +30,21 @@ public class DetailsModel : PageModel
     }
 
     // ── Basic fields ────────────────────────────────────────────────────────
-    public IActionResult OnPostUpdateBasic(int code, string name, string accrualBasis,
+    public IActionResult OnPostUpdateBasic(int code, string name, string category, string accrualBasis,
         BalanceAccountType balanceType, bool supportsStandingOrders, bool supportsDirectDebit,
         bool supportsAuthorizationHolds, bool supportsPendingObligationQueue, bool supportsDebtList,
-        decimal defaultOverdraftLimit)
+        decimal defaultOverdraftLimit, string accrualPeriod, string applicationPeriod,
+        int gracePeriodDays, string? applicationAccountNumber, long? applicationAddress)
     {
         var p = Require(code);
         p.Name                           = name.Trim();
+        p.Category                       = category;
         p.AccrualBasis                   = accrualBasis;
+        p.AccrualPeriod                  = accrualPeriod;
+        p.ApplicationPeriod              = applicationPeriod;
+        p.GracePeriodDays                = gracePeriodDays;
+        p.ApplicationAccountNumber       = string.IsNullOrWhiteSpace(applicationAccountNumber) ? null : applicationAccountNumber.Trim();
+        p.ApplicationAddress             = applicationAddress > 0 ? applicationAddress : null;
         p.BalanceType                    = balanceType;
         p.SupportsStandingOrders         = supportsStandingOrders;
         p.SupportsDirectDebit            = supportsDirectDebit;
@@ -139,17 +146,17 @@ public class DetailsModel : PageModel
     }
 
     // ── Rate entries ─────────────────────────────────────────────────────────
-    public IActionResult OnPostAddRate(int code, int rateCode, string rateName, string fiCodes)
+    public IActionResult OnPostAddRate(int code, int rateCode, string rateName,
+        long accrualBaseAddress, long accrualTargetAddress)
     {
         var p = Require(code);
         if (rateCode > 0 && !p.Rates.Any(r => r.Code == rateCode))
             p.Rates.Add(new RateEntry
             {
-                Code = rateCode,
-                Name = rateName ?? "",
-                FinancialIndicatorCodes = (fiCodes ?? "001")
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .ToList()
+                Code                 = rateCode,
+                Name                 = rateName ?? "",
+                AccrualBaseAddress   = accrualBaseAddress,
+                AccrualTargetAddress = accrualTargetAddress,
             });
         _store.SaveProduct(p);
         return Reload(code, edit: true);

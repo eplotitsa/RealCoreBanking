@@ -34,6 +34,7 @@ else
                         <th>#</th>
                         <th style="width:130px">Код продукта</th>
                         <th>Название продукта</th>
+                        <th>Категория</th>
                         <th class="text-center">Число счетов</th>
                     </tr>
                 </thead>
@@ -50,6 +51,16 @@ else
                             <td class="text-muted">@rowNum</td>
                             <td class="mono fw-semibold">@p.Code</td>
                             <td>@p.Name</td>
+                            <td>
+                                @if (p.Category == "Internal")
+                                {
+                                    <span class="badge bg-info text-dark">Внутренний</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Клиентский</span>
+                                }
+                            </td>
                             <td class="text-center text-muted">@accountCount</td>
                         </tr>
                         rowNum++;

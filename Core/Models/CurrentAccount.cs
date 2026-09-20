@@ -18,6 +18,7 @@ public class CurrentAccount
     public DateTime? ActivationDate { get; set; }
     public DateTime? LastTransactionDate { get; set; }
     public DateTime? BillingDate { get; set; }
+    public int GracePeriodDays { get; set; }
     public DateTime? DueDate { get; set; }
     public bool CreditBlocked { get; set; }
     public bool DebitBlocked { get; set; }
@@ -27,6 +28,7 @@ public class CurrentAccount
     public DebtArray DebtArray { get; set; } = new();
     public List<StandingOrder> StandingOrdersOutgoing { get; set; } = new();
     public List<StandingOrder> StandingOrdersIncoming { get; set; } = new();
+    public List<AccountTransaction> Transactions { get; set; } = new();
 
     [JsonIgnore]
     public AccountStatus Status
@@ -109,26 +111,82 @@ public class CurrentAccount
         EventBus.Publish(new ProductChangedEvent(AccountNumber, ProductCode.ToString(), newProductCode.ToString()));
     }
 
-    public bool Deposit(decimal amount, long balanceAddress)
+    public bool Deposit(decimal amount, long balanceAddress, DateTime? date = null)
     {
         if (CreditBlocked) return false;
         if (StatusValue == AccountStatus.Closed.Value) return false;
         var balance = Balances.GetByAddress(balanceAddress);
         if (balance == null) return false;
+
+        var txDate = date ?? DateTime.UtcNow;
+        var txId   = "TX" + txDate.ToString("yyyyMMdd") + "-" + Guid.NewGuid().ToString("N")[..6].ToUpper();
+
+        // Phase 1: Dr external source / Cr main balance
         balance.Add(amount);
-        LastTransactionDate = DateTime.UtcNow;
+
+        var tx = new AccountTransaction
+        {
+            TxId           = txId,
+            Date           = txDate,
+            Amount         = amount,
+            Currency       = balance.Currency,
+            BalanceAddress = balanceAddress,
+            Type           = "Financial",
+            Status         = "Posted",
+            Description    = "Deposit",
+        };
+        tx.Postings.Add(new Posting
+        {
+            PostingId   = txId + "-P1",
+            TxId        = txId,
+            Date        = txDate,
+            DrAddress   = 0,             // Dr external source
+            CrAddress   = balanceAddress, // Cr main balance
+            Amount      = amount,
+            Currency    = balance.Currency,
+            Description = "Dr external source / Cr main balance",
+        });
+
+        // AfterPosting: if there is used overdraft — repay it from the deposited funds
+        var odUsed = Balances.Items.FirstOrDefault(b =>
+            b.Prefix == 5 &&
+            b.Currency.Equals(balance.Currency, StringComparison.OrdinalIgnoreCase) &&
+            b.Amount > 0);
+        if (odUsed != null)
+        {
+            var repay = Math.Min(balance.Amount, odUsed.Amount);
+            balance.Amount -= repay;
+            odUsed.Amount  -= repay;
+            tx.Postings.Add(new Posting
+            {
+                PostingId   = txId + "-P2",
+                TxId        = txId,
+                Date        = txDate,
+                DrAddress   = balanceAddress, // Dr main balance
+                CrAddress   = odUsed.Address, // Cr overdraft-used (repayment)
+                Amount      = repay,
+                Currency    = balance.Currency,
+                Description = "AfterPosting: Dr main balance / Cr overdraft-used (repayment)",
+            });
+        }
+
+        Transactions.Add(tx);
+        LastTransactionDate = txDate;
         EventBus.Publish(new DepositEvent(AccountNumber, amount, balanceAddress));
         return true;
     }
 
-    public bool Withdraw(decimal amount, long balanceAddress)
+    public async Task<bool> WithdrawAsync(decimal amount, long balanceAddress, DateTime? date = null, CancellationToken ct = default)
     {
         if (DebitBlocked) return false;
         if (StatusValue == AccountStatus.Closed.Value) return false;
-        var balance = Balances.GetByAddress(balanceAddress);
-        if (balance == null) return false;
-        if (!balance.Subtract(amount)) return false;
-        LastTransactionDate = DateTime.UtcNow;
+
+        var contract = new RealCoreBanking.Core.Contracts.WithdrawSmartContract(amount, balanceAddress, date);
+        var pipeline = new RealCoreBanking.Core.Contracts.SmartContractPipeline();
+        await pipeline.RunAsync(this, [contract], ct);
+        if (!contract.Success) return false;
+
+        LastTransactionDate = date ?? DateTime.UtcNow;
         EventBus.Publish(new WithdrawEvent(AccountNumber, amount, balanceAddress));
         return true;
     }

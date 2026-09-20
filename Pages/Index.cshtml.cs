@@ -17,6 +17,39 @@ public class IndexModel : PageModel
 
     public void OnGet() { }
 
+    // Resolves the effective balance-type prefix the same way Details page does.
+    private int EffectivePrefix(Balance b, Product? product)
+    {
+        if (b.BalanceTypePrefix > 0) return b.BalanceTypePrefix;
+        if (product != null)
+        {
+            var pb = product.ProductBalances.FirstOrDefault(x => x.BalanceAddress == b.Address);
+            if (pb != null && pb.BalanceCode.Length >= 2 &&
+                int.TryParse(pb.BalanceCode[..2], out var pfx))
+                return pfx;
+        }
+        return (int)(b.Address / 100_000_000L);
+    }
+
+    // OTB = Σ(pfx=1) − Σ(pfx=2) − Σ(pfx=4) − Σ(pfx=5) + Σ(pfx=6)
+    public decimal GetOtb(CurrentAccount a)
+    {
+        var prod = _store.GetProduct(a.ProductCode);
+        return a.Balances.Items.Where(b => EffectivePrefix(b, prod) == 1).Sum(b => b.Amount)
+             - a.Balances.Items.Where(b => EffectivePrefix(b, prod) == 2).Sum(b => b.Amount)
+             - a.Balances.Items.Where(b => EffectivePrefix(b, prod) == 4).Sum(b => b.Amount)
+             - a.Balances.Items.Where(b => EffectivePrefix(b, prod) == 5).Sum(b => b.Amount)
+             + a.Balances.Items.Where(b => EffectivePrefix(b, prod) == 6).Sum(b => b.Amount);
+    }
+
+    // TotalBalance = Σ(pfx=1) − Σ(pfx=2)
+    public decimal GetTotalBalance(CurrentAccount a)
+    {
+        var prod = _store.GetProduct(a.ProductCode);
+        return a.Balances.Items.Where(b => EffectivePrefix(b, prod) == 1).Sum(b => b.Amount)
+             - a.Balances.Items.Where(b => EffectivePrefix(b, prod) == 2).Sum(b => b.Amount);
+    }
+
     public IActionResult OnPostLoadDemo()
     {
         var phpBalances = new[]
@@ -48,8 +81,8 @@ public class IndexModel : PageModel
             },
             Rates = new()
             {
-                new RateEntry { Code = 2021, Name = "current account rate php", FinancialIndicatorCodes = new() { "001" } },
-                new RateEntry { Code = 2022, Name = "current account rate usd", FinancialIndicatorCodes = new() { "001" } },
+                new RateEntry { Code = 2021, Name = "current account rate php" },
+                new RateEntry { Code = 2022, Name = "current account rate usd" },
             },
             GlCodes = new()
             {

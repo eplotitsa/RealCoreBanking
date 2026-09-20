@@ -1,0 +1,62 @@
+@page
+@model RealCoreBanking.Pages.InternalAccounts.IndexModel
+@{
+    ViewData["Title"] = "Внутренние счета";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h4 class="mb-0">Внутренние счета</h4>
+    <a class="btn btn-sm btn-primary" asp-page="/InternalAccounts/Open">&#43; Открыть счёт</a>
+</div>
+
+@if (!Model.Accounts.Any())
+{
+    <div class="alert alert-secondary">Внутренних счетов нет. <a asp-page="/InternalAccounts/Open">Открыть первый</a>.</div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Номер счёта</th>
+                        <th>Тип книги</th>
+                        <th>Владелец</th>
+                        <th>Тип владельца</th>
+                        <th>Статус</th>
+                        <th>Открыт</th>
+                        <th>Балансов</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in Model.Accounts.OrderBy(x => x.AccountNumber))
+                    {
+                        var statusClass = a.StatusValue switch
+                        {
+                            "open"                 => "bg-success",
+                            "close"                => "bg-secondary",
+                            "waiting for approval" => "bg-warning text-dark",
+                            _                      => "bg-info",
+                        };
+                        <tr>
+                            <td class="mono">@a.AccountNumber</td>
+                            <td>@a.BookType</td>
+                            <td>@a.OwnerId</td>
+                            <td><span class="badge bg-secondary">@a.OwnerType</span></td>
+                            <td><span class="badge @statusClass">@a.StatusValue</span></td>
+                            <td>@a.OpenedDate.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                            <td>@a.Balances.Items.Count</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary"
+                                   asp-page="/InternalAccounts/Details"
+                                   asp-route-id="@a.AccountId">Открыть</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

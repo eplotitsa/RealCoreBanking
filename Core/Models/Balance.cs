@@ -14,8 +14,12 @@ public class Balance
     public string FinancialIndicatorCode { get; set; } = "001";
     public string GlCode { get; set; } = "";
 
+    // Persisted: 1=IncreasesTotal 2=DecreasesTotal 3=NoEffect 4=BlocksTotal 5=BlocksOTB
+    // When 0 (old records), Prefix falls back to the address-based heuristic.
+    public int BalanceTypePrefix { get; set; } = 0;
+
     [JsonIgnore]
-    public int Prefix => (int)(Address / 100_000_000L);
+    public int Prefix => BalanceTypePrefix > 0 ? BalanceTypePrefix : (int)(Address / 100_000_000L);
 
     [JsonIgnore]
     public string Code => Prefix.ToString("D2") + FinancialIndicatorCode;

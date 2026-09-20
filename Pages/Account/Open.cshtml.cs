@@ -18,7 +18,8 @@ public class OpenModel : PageModel
     [BindProperty] public List<BalanceInput> Balances { get; set; } = new();
 
     public string? Error { get; private set; }
-    public IReadOnlyCollection<Product> Products => _store.AllProducts;
+    public IReadOnlyCollection<Product> Products =>
+        _store.AllProducts.Where(p => p.Category != "Internal").ToList();
 
     public OpenModel(AccountStore store) => _store = store;
 
@@ -42,6 +43,12 @@ public class OpenModel : PageModel
             {
                 var currency = _store.GetCurrency(pb.CurrencyCode);
                 var def      = _store.GetBalanceDefinition(pb.BalanceDefinitionId);
+                // Prefix comes from ProductBalance.BalanceCode (first 2 digits) — this is the
+                // product-specific type the user configured, which takes priority over the
+                // shared BalanceDefinition that may have been changed for other products.
+                int balTypePfx = 0;
+                if (pb.BalanceCode.Length >= 2)
+                    int.TryParse(pb.BalanceCode[..2], out balTypePfx);
                 balances.Add(new Balance
                 {
                     Address                = pb.BalanceAddress,
@@ -51,6 +58,7 @@ public class OpenModel : PageModel
                     RoundingRule           = currency?.RoundingRule ?? RoundingRule.AwayFromZero,
                     FinancialIndicatorCode = def?.FinancialIndicatorCode ?? "001",
                     GlCode                 = pb.GlCode,
+                    BalanceTypePrefix      = balTypePfx,
                     Amount                 = 0,
                 });
             }
@@ -95,6 +103,20 @@ public class OpenModel : PageModel
             productCode:        ProductCode,
             customerIds:        customerList,
             balances:           balances);
+
+        // Set billing date and grace period from product
+        var graceDays = product?.GracePeriodDays ?? 0;
+        var openDate  = account.OpenedDate.ToLocalTime();
+        // Billing date cannot fall on 29, 30, 31 — shift to 1st of next month
+        var billingDay = openDate.Day;
+        DateTime billingDate;
+        if (billingDay >= 29)
+            billingDate = new DateTime(openDate.Year, openDate.Month, 1).AddMonths(1);
+        else
+            billingDate = new DateTime(openDate.Year, openDate.Month, billingDay);
+        account.BillingDate    = billingDate;
+        account.GracePeriodDays = graceDays;
+        account.DueDate        = billingDate.AddDays(graceDays);
 
         _store.Add(account);
         return RedirectToPage("/Account/Details", new { id = account.AccountId });

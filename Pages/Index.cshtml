@@ -35,8 +35,8 @@ else
                         <th>Статус</th>
                         <th>Продукт</th>
                         <th>Тип баланса</th>
-                        <th class="text-end">Доступный</th>
-                        <th class="text-end">Итого</th>
+                        <th class="text-end">Баланс</th>
+                        <th class="text-end">ОТВ</th>
                         <th>Клиенты</th>
                         <th></th>
                     </tr>
@@ -62,10 +62,10 @@ else
                             </td>
                             <td>@a.ProductCode</td>
                             <td>@a.BalanceAccountType</td>
-                            <td class="text-end mono @(a.GetAvailableBalance() >= 0 ? "text-success" : "text-danger")">
-                                @a.GetAvailableBalance().ToString("N2")
+                            <td class="text-end mono">@Model.GetTotalBalance(a).ToString("N2")</td>
+                            <td class="text-end mono @(Model.GetOtb(a) >= 0 ? "text-success" : "text-danger")">
+                                @Model.GetOtb(a).ToString("N2")
                             </td>
-                            <td class="text-end mono">@a.Balances.TotalBalance.ToString("N2")</td>
                             <td><small>@(a.CustomerIds.Any() ? string.Join(", ", a.CustomerIds) : "—")</small></td>
                             <td>
                                 <a asp-page="/Account/Details" asp-route-id="@a.AccountId"

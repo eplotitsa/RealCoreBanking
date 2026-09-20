@@ -4,11 +4,29 @@ namespace RealCoreBanking.Core.Models;
 
 public class Product
 {
-    public int Code { get; set; }
-    public string Name { get; set; } = "";
+    public int    Code     { get; set; }
+    public string Name     { get; set; } = "";
+
+    /// <summary>Client | Internal</summary>
+    public string Category { get; set; } = "Client";
 
     // ACT/360 | ACT/365F | 30/360 | ACT/ACT
     public string AccrualBasis { get; set; } = "ACT/ACT";
+
+    // daily | monthly | yearly
+    public string AccrualPeriod { get; set; } = "daily";
+
+    // monthly | quarterly | yearly
+    public string ApplicationPeriod { get; set; } = "monthly";
+
+    // Account number for interest application
+    public string? ApplicationAccountNumber { get; set; }
+
+    // Balance address for interest application (from product balances)
+    public long? ApplicationAddress { get; set; }
+
+    // Grace period in days (Due date = Billing date + GracePeriodDays)
+    public int GracePeriodDays { get; set; }
 
     public BalanceAccountType BalanceType { get; set; }
 

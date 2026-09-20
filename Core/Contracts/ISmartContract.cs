@@ -4,11 +4,20 @@ namespace RealCoreBanking.Core.Contracts;
 
 public interface ISmartContract
 {
-    string Name { get; }
+    string Name    { get; }
+    bool   Success { get; }
 
-    void BeforeChange(CurrentAccount account) { }
-    void Execute(CurrentAccount account);
-    void AfterChange(CurrentAccount account) { }
-    void OnDayOpen(CurrentAccount account) { }
-    void OnDayClose(CurrentAccount account) { }
+    Task BeforeChangeAsync(CurrentAccount account, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    Task ExecuteAsync(CurrentAccount account, CancellationToken ct = default);
+
+    Task AfterChangeAsync(CurrentAccount account, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    Task OnDayOpenAsync(CurrentAccount account, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    Task OnDayCloseAsync(CurrentAccount account, CancellationToken ct = default)
+        => Task.CompletedTask;
 }

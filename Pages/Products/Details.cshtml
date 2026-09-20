@@ -77,7 +77,7 @@
             <div class="info-label">код продукта</div>
             <div class="info-box mono">@p.Code</div>
         </div>
-        <div class="col-md-9">
+        <div class="col-md-7">
             <div class="info-label">название продукта</div>
             @if (edit)
             {
@@ -86,6 +86,26 @@
             else
             {
                 <div class="info-box fw-semibold">@p.Name</div>
+            }
+        </div>
+        <div class="col-md-2">
+            <div class="info-label">категория</div>
+            @if (edit)
+            {
+                <select name="category" class="form-select">
+                    @if (p.Category == "Client") { <option value="Client" selected>Клиентский</option> }
+                    else { <option value="Client">Клиентский</option> }
+                    @if (p.Category == "Internal") { <option value="Internal" selected>Внутренний</option> }
+                    else { <option value="Internal">Внутренний</option> }
+                </select>
+            }
+            else
+            {
+                <div class="info-box">
+                    @(p.Category == "Internal"
+                        ? Html.Raw("<span class='badge bg-info text-dark'>Внутренний</span>")
+                        : Html.Raw("<span class='badge bg-secondary'>Клиентский</span>"))
+                </div>
             }
         </div>
 
@@ -138,6 +158,98 @@
                        value="@p.DefaultOverdraftLimit" class="form-control" />
             </div>
         }
+    </div>
+
+    <!-- Row: Период начисления | Период применения | Грейс период -->
+    <div class="row g-2 mb-3" style="max-width:760px">
+        <div class="col-md-4">
+            <div class="info-label">период начисления</div>
+            @if (edit)
+            {
+                <select name="accrualPeriod" class="form-select">
+                    @foreach (var v in new[]{"daily","monthly","yearly"})
+                    {
+                        if (v == p.AccrualPeriod) { <option value="@v" selected>@v</option> }
+                        else { <option value="@v">@v</option> }
+                    }
+                </select>
+            }
+            else
+            {
+                <div class="info-box"><span class="badge bg-secondary">@p.AccrualPeriod</span></div>
+            }
+        </div>
+        <div class="col-md-4">
+            <div class="info-label">период применения</div>
+            @if (edit)
+            {
+                <select name="applicationPeriod" class="form-select">
+                    @foreach (var v in new[]{"monthly","quarterly","yearly"})
+                    {
+                        if (v == p.ApplicationPeriod) { <option value="@v" selected>@v</option> }
+                        else { <option value="@v">@v</option> }
+                    }
+                </select>
+            }
+            else
+            {
+                <div class="info-box"><span class="badge bg-secondary">@p.ApplicationPeriod</span></div>
+            }
+        </div>
+        <div class="col-md-4">
+            <div class="info-label">грейс период (дней)</div>
+            @if (edit)
+            {
+                <input type="number" name="gracePeriodDays" min="0" max="365"
+                       value="@p.GracePeriodDays" class="form-control" />
+            }
+            else
+            {
+                <div class="info-box">@(p.GracePeriodDays > 0 ? $"{p.GracePeriodDays} дн." : "—")</div>
+            }
+        </div>
+    </div>
+
+    <!-- Row: Счет применения | Адрес применения -->
+    <div class="row g-2 mb-2" style="max-width:760px">
+        <div class="col-md-6">
+            <div class="info-label">счет применения</div>
+            @if (edit)
+            {
+                <input type="text" name="applicationAccountNumber" maxlength="50"
+                       value="@(p.ApplicationAccountNumber ?? "")" class="form-control"
+                       placeholder="номер счета" />
+            }
+            else
+            {
+                <div class="info-box mono">@(p.ApplicationAccountNumber ?? "—")</div>
+            }
+        </div>
+        <div class="col-md-6">
+            <div class="info-label">адрес применения</div>
+            @if (edit)
+            {
+                <select name="applicationAddress" class="form-select">
+                    <option value="">— не задан —</option>
+                    @foreach (var pb in p.ProductBalances.OrderBy(b => b.BalanceCode))
+                    {
+                        var addrStr = pb.BalanceAddress.ToString("D10");
+                        if (p.ApplicationAddress == pb.BalanceAddress)
+                        {
+                            <option value="@pb.BalanceAddress" selected>@pb.BalanceCode — @pb.BalanceName (@addrStr)</option>
+                        }
+                        else
+                        {
+                            <option value="@pb.BalanceAddress">@pb.BalanceCode — @pb.BalanceName (@addrStr)</option>
+                        }
+                    }
+                </select>
+            }
+            else
+            {
+                <div class="info-box mono">@(p.ApplicationAddress.HasValue ? p.ApplicationAddress.Value.ToString("D10") : "—")</div>
+            }
+        </div>
     </div>
 </form>
 
@@ -307,7 +419,9 @@
                 <tr>
                     <th>код ставки</th>
                     <th>Название ставки</th>
-                    <th>список адресов баланса (ФИ коды)</th>
+                    <th>адрес для начисления</th>
+                    <th>адрес начисления</th>
+                    <th class="text-end">значение</th>
                     @if (edit) { <th></th> }
                 </tr>
             </thead>
@@ -315,16 +429,26 @@
                 @if (!p.Rates.Any())
                 {
                     <tr>
-                        <td colspan="@(edit ? 4 : 3)" class="text-muted text-center py-3">Нет ставок</td>
+                        <td colspan="@(edit ? 6 : 5)" class="text-muted text-center py-3">Нет ставок</td>
                     </tr>
                 }
                 @foreach (var r in p.Rates)
                 {
                     var linked = Model.LinkedRates.FirstOrDefault(x => x.Code == r.Code);
+                    var baseName  = p.ProductBalances.FirstOrDefault(b => b.BalanceAddress == r.AccrualBaseAddress)?.BalanceName ?? "";
+                    var tgtName   = p.ProductBalances.FirstOrDefault(b => b.BalanceAddress == r.AccrualTargetAddress)?.BalanceName ?? "";
                     <tr>
                         <td class="mono fw-semibold">@r.Code</td>
-                        <td>@r.Name @(linked != null ? $"({linked.CurrentRate:F2}%)" : "")</td>
-                        <td class="mono text-muted">@string.Join(", ", r.FinancialIndicatorCodes)</td>
+                        <td>@r.Name</td>
+                        <td class="mono text-muted" title="@baseName">
+                            @(r.AccrualBaseAddress > 0 ? r.AccrualBaseAddress.ToString("D10") : "—")
+                        </td>
+                        <td class="mono text-muted" title="@tgtName">
+                            @(r.AccrualTargetAddress > 0 ? r.AccrualTargetAddress.ToString("D10") : "—")
+                        </td>
+                        <td class="text-end fw-semibold">
+                            @(linked != null ? $"{linked.CurrentRate:F2}%" : "—")
+                        </td>
                         @if (edit)
                         {
                             <td>
@@ -343,18 +467,18 @@
 
     @if (edit)
     {
-        <div id="addRatePanel" style="display:none" class="p-2 border-top bg-light">
+        <div id="addRatePanel" style="display:none" class="p-3 border-top bg-light">
             @if (!Model.AllRates.Any())
             {
-                <div class="text-muted small py-1">
-                    Ставки не заведены. <a asp-page="/Rates/Index">Перейти к ставкам →</a>
-                </div>
+                <div class="text-muted small py-1">Ставки не заведены.</div>
             }
             else
             {
                 <form method="post" asp-page-handler="AddRate" class="row g-2 align-items-end">
                     <input type="hidden" name="code" value="@p.Code" />
-                    <div class="col-7">
+                    <input type="hidden" name="rateName" id="addRateNameHidden" />
+
+                    <div class="col-12 col-md-4">
                         <label class="form-label form-label-sm">Ставка <span class="text-danger">*</span></label>
                         <select name="rateCode" class="form-select form-select-sm" required
                                 onchange="syncRateName(this)">
@@ -376,15 +500,36 @@
                                 }
                             }
                         </select>
-                        <input type="hidden" name="rateName" id="addRateNameHidden" />
                     </div>
-                    <div class="col-3">
-                        <label class="form-label form-label-sm">ФИ коды</label>
-                        <input name="fiCodes" type="text" class="form-control form-control-sm"
-                               placeholder="001" value="001" />
+
+                    <div class="col-12 col-md-3">
+                        <label class="form-label form-label-sm">Адрес для начисления</label>
+                        <select name="accrualBaseAddress" class="form-select form-select-sm">
+                            <option value="0">— выберите —</option>
+                            @foreach (var pb in p.ProductBalances.OrderBy(b => b.BalanceCode))
+                            {
+                                <option value="@pb.BalanceAddress">
+                                    @pb.BalanceAddress.ToString("D10") — @pb.BalanceName
+                                </option>
+                            }
+                        </select>
                     </div>
-                    <div class="col-2">
-                        <button type="submit" class="btn btn-primary btn-sm w-100">+</button>
+
+                    <div class="col-12 col-md-3">
+                        <label class="form-label form-label-sm">Адрес начисления</label>
+                        <select name="accrualTargetAddress" class="form-select form-select-sm">
+                            <option value="0">— выберите —</option>
+                            @foreach (var pb in p.ProductBalances.OrderBy(b => b.BalanceCode))
+                            {
+                                <option value="@pb.BalanceAddress">
+                                    @pb.BalanceAddress.ToString("D10") — @pb.BalanceName
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-2">
+                        <button type="submit" class="btn btn-primary btn-sm w-100">Добавить</button>
                     </div>
                 </form>
             }
