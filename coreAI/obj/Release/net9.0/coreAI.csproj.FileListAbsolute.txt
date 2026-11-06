@@ -1,1 +1,0 @@
-C:\Users\Yevhen\OneDrive\C#\realcorebanking\RealCoreBanking\coreAI\obj\Release\net9.0\coreAI.GeneratedMSBuildEditorConfig.editorconfig

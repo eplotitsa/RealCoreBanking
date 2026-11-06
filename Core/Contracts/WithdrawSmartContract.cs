@@ -49,6 +49,15 @@ public class WithdrawSmartContract : ISmartContract
 
         if (_amount > otb) { Success = false; return Task.CompletedTask; }
 
+        // ── Pre-flight overdraft-account check ───────────────────────────────
+        // If the withdrawal exceeds the main balance, the deficit must be recorded on the
+        // overdraft-used balance (prefix 5). Without it the deficit would silently vanish.
+        if (_amount > source.Amount && !items.Any(b => b.Prefix == 5))
+        {
+            Success = false;
+            return Task.CompletedTask;
+        }
+
         var txId = "TX" + _date.ToString("yyyyMMdd") + "-" +
                    Guid.NewGuid().ToString("N")[..6].ToUpper();
 

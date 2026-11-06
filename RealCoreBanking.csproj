@@ -17,6 +17,10 @@
   <ItemGroup>
     <Compile Remove="obj\**" />
     <Compile Remove="bin\**" />
+    <!-- coreAI is a separate class library stored in this folder (this project does
+         not reference it) — keep its sources out of the default compile glob. -->
+    <Compile Remove="coreAI\**" />
+    <Compile Remove="tests\**" />
   </ItemGroup>
 
 </Project>
